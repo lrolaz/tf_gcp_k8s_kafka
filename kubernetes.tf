@@ -1,12 +1,7 @@
 resource "google_container_cluster" "gcp_kubernetes" {
   name               = "${var.cluster_name}"
-  zone               = "us-west1-a"
+  zone               = "europe-west1-b"
   initial_node_count = "${var.gcp_cluster_count}"
-
-  additional_zones = [
-    "us-west1-b",
-    "us-west1-c",
-  ]
 
   master_auth {
     username = "${var.linux_admin_username}"
@@ -21,10 +16,12 @@ resource "google_container_cluster" "gcp_kubernetes" {
       "https://www.googleapis.com/auth/monitoring",
     ]
 
+    disk_size_gb       = 10
+
     labels {
-      this-is-for = "dev-cluster"
+      this-is-for = "kafka-cluster"
     }
 
-    tags = ["dev", "work"]
+    tags = ["kafka", "labo"]
   }
 }

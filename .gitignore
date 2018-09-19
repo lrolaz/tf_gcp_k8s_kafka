@@ -6,6 +6,5 @@
 .idea
 .terraform
 
-# State files. We don't really need those in the repository.
-*.tfstate
-*.tfstate.backup
+secrets/*
+*~
