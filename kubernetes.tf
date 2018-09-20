@@ -1,7 +1,12 @@
+data "google_container_engine_versions" "central1b" {
+  zone = "us-central1-b"
+}
+
 resource "google_container_cluster" "gcp_kubernetes" {
   name               = "${var.cluster_name}"
   zone               = "europe-west1-b"
   initial_node_count = "${var.gcp_cluster_count}"
+  node_version       = "${data.google_container_engine_versions.central1b.latest_node_version}"
 
   master_auth {
     username = "${var.linux_admin_username}"
@@ -17,6 +22,8 @@ resource "google_container_cluster" "gcp_kubernetes" {
     ]
 
     disk_size_gb       = 10
+
+    local_ssd_count    = 2
 
     labels {
       this-is-for = "kafka-cluster"
