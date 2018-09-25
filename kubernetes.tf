@@ -1,12 +1,12 @@
-data "google_container_engine_versions" "central1b" {
-  zone = "us-central1-b"
+data "google_container_engine_versions" "kube_version" {
+  zone = "europe-west1-b"
 }
 
 resource "google_container_cluster" "gcp_kubernetes" {
   name               = "${var.cluster_name}"
   zone               = "europe-west1-b"
   initial_node_count = "${var.gcp_cluster_count}"
-  node_version       = "${data.google_container_engine_versions.central1b.latest_node_version}"
+  node_version       = "${data.google_container_engine_versions.kube_version.latest_node_version}"
 
   master_auth {
     username = "${var.linux_admin_username}"
