@@ -194,11 +194,10 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: nginx-ingress
+    app: nginx-ingress-controller
   name: nginx-ingress-controller
   namespace: kube-system    
 spec:
-  clusterIP: ""
   ports:
     - name: http
       port: 80
@@ -209,7 +208,7 @@ spec:
       protocol: TCP
       targetPort: https
   selector:
-    app: nginx-ingress
+    app: nginx-ingress-controller
   type: "LoadBalancer"
 
 ---
@@ -219,41 +218,39 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: nginx-ingress
+    app: nginx-default-http-backend
   name: nginx-ingress-default-backend
   namespace: kube-system    
 spec:
-  clusterIP: ""
   ports:
     - name: http
       port: 80
       protocol: TCP
       targetPort: http
   selector:
-    app: nginx-ingress
+    app: nginx-default-http-backend
   type: "ClusterIP"
 
 ---
 # Source: nginx-ingress/templates/controller-deployment.yaml
 
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: nginx-ingress
+    app: nginx-ingress-controller
   name: nginx-ingress-controller
   namespace: kube-system    
 spec:
   replicas: 1
   revisionHistoryLimit: 10
-  strategy:
-    {}
-    
-  minReadySeconds: 0
+  selector:
+    matchLabels:
+      app: nginx-ingress-controller    
   template:
     metadata:
       labels:
-        app: nginx-ingress
+        app: nginx-ingress-controller               
     spec:
       dnsPolicy: ClusterFirst
       containers:
@@ -262,10 +259,10 @@ spec:
           imagePullPolicy: "IfNotPresent"
           args:
             - /nginx-ingress-controller
-            - --default-backend-service=default/nginx-ingress-default-backend
+            - --default-backend-service=kube-system/nginx-ingress-default-backend
             - --election-id=ingress-controller-leader
             - --ingress-class=nginx
-            - --configmap=default/nginx-ingress-controller
+            - --configmap=kube-system/nginx-ingress-controller
           securityContext:
             capabilities:
                 drop:
@@ -320,20 +317,23 @@ spec:
 ---
 # Source: nginx-ingress/templates/default-backend-deployment.yaml
 
-apiVersion: extensions/v1beta1
+apiVersion: apps/v1
 kind: Deployment
 metadata:
   labels:
-    app: nginx-ingress
+    app: nginx-default-http-backend
   name: nginx-ingress-default-backend
   namespace: kube-system    
 spec:
   replicas: 1
   revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: nginx-default-http-backend    
   template:
     metadata:
       labels:
-        app: nginx-ingress
+        app: nginx-default-http-backend         
     spec:
       containers:
         - name: nginx-ingress-default-backend
