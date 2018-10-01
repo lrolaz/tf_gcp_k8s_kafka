@@ -152,7 +152,7 @@ metadata:
   name: cert-manager-vault-token
   namespace: kube-security 
 data:
-  token: aW5zZWN1cmUtZGV2LW9ubHktdG9rZW4=       
+  token: MDkxOWFlZjktYjEwOC0zZGU2LTEzMGMtMjk0YmNhM2Q2YTUw      
 ---
 apiVersion: certmanager.k8s.io/v1alpha1
 kind: ClusterIssuer
