@@ -33,6 +33,7 @@ resource "google_storage_bucket" "vault" {
   name          = "kube-kafka-labo-vault-storage"
   force_destroy = true
   storage_class = "MULTI_REGIONAL"
+  location = "EU"
 
   versioning {
     enabled = true
@@ -82,6 +83,17 @@ resource "google_kms_crypto_key_iam_member" "vault-init" {
   member        = "serviceAccount:${google_service_account.vault-server.email}"
 }
 
+# Write the secret
+resource "kubernetes_secret" "vault-tls" {
+  metadata {
+    name = "vault-tls"
+  }
+
+  data {
+    "vault.crt" = "${tls_locally_signed_cert.vault.cert_pem}\n${tls_self_signed_cert.vault-ca.cert_pem}"
+    "vault.key" = "${tls_private_key.vault.private_key_pem}"
+  }
+}
 
 # Write the configmap
 resource "kubernetes_config_map" "vault" {

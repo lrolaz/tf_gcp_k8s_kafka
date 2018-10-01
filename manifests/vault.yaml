@@ -7,7 +7,7 @@ metadata:
     app: vault
 spec:
   type: LoadBalancer
-  loadBalancerIP: ${load_balancer_ip}
+  loadBalancerIP: 35.241.130.246
   selector:
     app: vault
   ports:
@@ -54,12 +54,12 @@ spec:
             memory: '64Mi'
         env:
         - name: "GOOGLE_APPLICATION_CREDENTIALS"
-          value: "/var/run/secret/cloud.google.com/service-account.json"
+          value: "/var/run/secret/cloud.google.com/vault-server.json"
         - name: "PROJECT_ID"
           valueFrom:
             configMapKeyRef:
               name: vault
-              key: project-id     
+              key: project_id     
         - name: CHECK_INTERVAL
           value: "30"
         - name: GCS_BUCKET_NAME
@@ -100,12 +100,12 @@ spec:
           mountPath: "/var/run/secret/cloud.google.com"          
         env:
         - name: "GOOGLE_APPLICATION_CREDENTIALS"
-          value: "/var/run/secret/cloud.google.com/service-account.json"
+          value: "/var/run/secret/cloud.google.com/vault-server.json"
         - name: "PROJECT_ID"
           valueFrom:
             configMapKeyRef:
               name: vault
-              key: project-id           
+              key: project_id           
         - name: POD_IP_ADDR
           valueFrom:
             fieldRef:
