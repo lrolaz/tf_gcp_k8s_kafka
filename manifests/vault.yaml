@@ -25,7 +25,7 @@ metadata:
     app: vault
 spec:
   serviceName: vault
-  replicas: ${num_vault_servers}
+  replicas: 1
   selector:
     matchLabels:
       app: vault
@@ -53,6 +53,13 @@ spec:
             cpu: '100m'
             memory: '64Mi'
         env:
+        - name: "GOOGLE_APPLICATION_CREDENTIALS"
+          value: "/var/run/secret/cloud.google.com/service-account.json"
+        - name: "PROJECT_ID"
+          valueFrom:
+            configMapKeyRef:
+              name: vault
+              key: project-id     
         - name: CHECK_INTERVAL
           value: "30"
         - name: GCS_BUCKET_NAME
@@ -65,6 +72,9 @@ spec:
             configMapKeyRef:
               name: vault
               key: kms_key_id
+        volumeMounts:
+        - name: "service-account"
+          mountPath: "/var/run/secret/cloud.google.com"                
       - name: vault
         image: registry.hub.docker.com/library/vault:0.11.1
         imagePullPolicy: Always
@@ -86,7 +96,16 @@ spec:
         volumeMounts:
         - name: vault-tls
           mountPath: /etc/vault/tls
+        - name: "service-account"
+          mountPath: "/var/run/secret/cloud.google.com"          
         env:
+        - name: "GOOGLE_APPLICATION_CREDENTIALS"
+          value: "/var/run/secret/cloud.google.com/service-account.json"
+        - name: "PROJECT_ID"
+          valueFrom:
+            configMapKeyRef:
+              name: vault
+              key: project-id           
         - name: POD_IP_ADDR
           valueFrom:
             fieldRef:
@@ -131,3 +150,6 @@ spec:
       - name: vault-tls
         secret:
           secretName: vault-tls
+      - name: "service-account"
+        secret:
+          secretName: "vault-server"          

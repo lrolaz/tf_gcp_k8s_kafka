@@ -82,6 +82,21 @@ resource "google_kms_crypto_key_iam_member" "vault-init" {
   member        = "serviceAccount:${google_service_account.vault-server.email}"
 }
 
+
+# Write the configmap
+resource "kubernetes_config_map" "vault" {
+  metadata {
+    name = "vault"
+  }
+
+  data {
+    load_balancer_address = "${google_compute_address.vault.address}"
+    gcs_bucket_name       = "${google_storage_bucket.vault.name}"
+    kms_key_id            = "${google_kms_crypto_key.vault-init.id}"
+    project_id            = "kube-kafka-labo"
+  }
+}
+
 # Provision IP
 resource "google_compute_address" "vault" {
   name    = "vault-lb"
