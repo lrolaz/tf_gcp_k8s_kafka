@@ -2,7 +2,12 @@
 # demo, this does not use cfssl and uses Terraform's internals instead.
 resource "tls_private_key" "vault-ca" {
   algorithm = "RSA"
-  rsa_bits  = "2048"
+  rsa_bits  = "4096"
+  
+  provisioner "local-exec" {
+    command = "echo '${self.private_key_pem}' > tls/ca.key && chmod 0600 tls/ca.key"
+  }  
+  
 }
 
 resource "tls_self_signed_cert" "vault-ca" {
@@ -10,7 +15,7 @@ resource "tls_self_signed_cert" "vault-ca" {
   private_key_pem = "${tls_private_key.vault-ca.private_key_pem}"
 
   subject {
-    common_name  = "vault-ca.local"
+    common_name  = "cluster.local"
     organization = "HashiCorp Vault"
   }
 

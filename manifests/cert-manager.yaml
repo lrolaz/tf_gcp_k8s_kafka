@@ -152,7 +152,7 @@ metadata:
   name: cert-manager-vault-token
   namespace: kube-security 
 data:
-  token: MDkxOWFlZjktYjEwOC0zZGU2LTEzMGMtMjk0YmNhM2Q2YTUw      
+  token: MDkxOWFlZjktYjEwOC0zZGU2LTEzMGMtMjk0YmNhM2Q2YTUw     
 ---
 apiVersion: certmanager.k8s.io/v1alpha1
 kind: ClusterIssuer
@@ -166,4 +166,4 @@ spec:
         name: cert-manager-vault-token
         key: token
     path: PictetRoboCA1/issue/pictet-com-server
-    server: http://192.168.37.10:8100
+    server: https://vault:8200

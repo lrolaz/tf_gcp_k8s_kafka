@@ -87,6 +87,7 @@ resource "google_kms_crypto_key_iam_member" "vault-init" {
 resource "kubernetes_secret" "vault-tls" {
   metadata {
     name = "vault-tls"
+    namespace = "kube-security"
   }
 
   data {
@@ -95,10 +96,23 @@ resource "kubernetes_secret" "vault-tls" {
   }
 }
 
+# Write the secret
+resource "kubernetes_secret" "vault-ca" {
+  metadata {
+    name = "vault-ca"
+    namespace = "kube-security"
+  }
+
+  data {
+    "ca.pem" = "${tls_self_signed_cert.vault-ca.cert_pem}"
+  }
+}
+
 # Write the configmap
 resource "kubernetes_config_map" "vault" {
   metadata {
     name = "vault"
+    namespace = "kube-security"
   }
 
   data {

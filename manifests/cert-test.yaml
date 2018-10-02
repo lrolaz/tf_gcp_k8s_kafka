@@ -1,0 +1,11 @@
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: my-certificate2
+  namespace: kube-security
+spec:
+  secretName: my-certificate-secret
+  commonName: example.com
+  issuerRef:
+    name: vault-issuer
+    kind: ClusterIssuer
