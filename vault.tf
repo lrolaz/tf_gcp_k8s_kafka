@@ -104,7 +104,7 @@ resource "kubernetes_secret" "vault-ca" {
   }
 
   data {
-    "ca.pem" = "${tls_self_signed_cert.vault-ca.cert_pem}"
+    "vault-ca.pem" = "${tls_self_signed_cert.vault-ca.cert_pem}"
   }
 }
 
