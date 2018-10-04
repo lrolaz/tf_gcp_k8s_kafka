@@ -1,0 +1,45 @@
+apiVersion: kafka.strimzi.io/v1alpha1
+kind: KafkaTopic
+metadata:
+  name: example02
+  namespace: kube-public
+  labels:
+    strimzi.io/kind: topic  
+spec:
+  partitions: 1
+  replicas: 2
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: example-consumer
+  namespace: kube-public
+spec:
+  containers:
+  - name: example-consumer
+    image: strimzi/kafka:latest
+    resources:
+      limits:
+        memory: "200Mi"
+      requests:
+        memory: "100Mi"
+    command: ["bin/kafka-console-consumer.sh"]
+    args: ["--bootstrap-server", "kafka-cp-kafka-headless.kube-kafka.svc.cluster.local:9092", "--topic", "example02", "--from-beginning", "--group", "example-consumer01"]  
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: example-producer
+  namespace: kube-public
+spec:
+  containers:
+  - name: example-producer
+    image: strimzi/kafka:latest
+    resources:
+      limits:
+        memory: "200Mi"
+      requests:
+        memory: "100Mi"
+    command: ["bin/kafka-producer-perf-test.sh"]
+    args: ["--producer-props", "bootstrap.servers=kafka-cp-kafka.kube-kafka.svc.cluster.local:9092", "--topic", "example02", "--num-records", "1000", "--throughput", "10", "--record-size", "100"]   
+  restartPolicy: Never  

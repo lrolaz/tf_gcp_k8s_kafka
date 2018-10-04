@@ -1,4 +1,79 @@
 ---
+# Source: cp-helm-charts/charts/cp-kafka/templates/jmx-configmap.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-cp-kafka-jmx-configmap
+  namespace: kube-kafka
+  labels:
+    app: cp-kafka
+    chart: cp-kafka-0.1.0
+    release: kafka
+    heritage: Tiller
+data:
+  jmx-kafka-prometheus.yml: |+
+    jmxUrl: service:jmx:rmi:///jndi/rmi://localhost:5555/jmxrmi
+    lowercaseOutputName: true
+    lowercaseOutputLabelNames: true
+    ssl: false
+    rules:
+    - pattern : kafka.server<type=ReplicaManager, name=(.+)><>(Value|OneMinuteRate)
+      name: "cp_kafka_server_replicamanager_$1"
+    - pattern : kafka.controller<type=KafkaController, name=(.+)><>Value
+      name: "cp_kafka_controller_kafkacontroller_$1"
+    - pattern : kafka.server<type=BrokerTopicMetrics, name=(.+)><>OneMinuteRate
+      name: "cp_kafka_server_brokertopicmetrics_$1"
+    - pattern : kafka.network<type=RequestMetrics, name=RequestsPerSec, request=(.+)><>OneMinuteRate
+      name: "cp_kafka_network_requestmetrics_requestspersec_$1"
+    - pattern : kafka.network<type=SocketServer, name=NetworkProcessorAvgIdlePercent><>Value
+      name: "cp_kafka_network_socketserver_networkprocessoravgidlepercent"
+    - pattern : kafka.server<type=ReplicaFetcherManager, name=MaxLag, clientId=(.+)><>Value
+      name: "cp_kafka_server_replicafetchermanager_maxlag_$1"
+    - pattern : kafka.server<type=KafkaRequestHandlerPool, name=RequestHandlerAvgIdlePercent><>OneMinuteRate
+      name: "cp_kafka_kafkarequesthandlerpool_requesthandleravgidlepercent"
+    - pattern : kafka.controller<type=ControllerStats, name=(.+)><>OneMinuteRate
+      name: "cp_kafka_controller_controllerstats_$1"
+    - pattern : kafka.server<type=SessionExpireListener, name=(.+)><>OneMinuteRate
+      name: "cp_kafka_server_sessionexpirelistener_$1"
+---
+# Source: cp-helm-charts/charts/cp-zookeeper/templates/jmx-configmap.yaml
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kafka-cp-zookeeper-jmx-configmap
+  namespace: kube-kafka
+  labels:
+    app: cp-zookeeper
+    chart: cp-zookeeper-0.1.0
+    release: kafka
+    heritage: Tiller
+data:
+  jmx-zookeeper-prometheus.yml: |+
+    jmxUrl: service:jmx:rmi:///jndi/rmi://localhost:5555/jmxrmi
+    lowercaseOutputName: true
+    lowercaseOutputLabelNames: true
+    ssl: false
+    rules:
+    - pattern: "org.apache.ZooKeeperService<name0=ReplicatedServer_id(\\d+)><>(\\w+)"
+      name: "cp_zookeeper_$2"
+    - pattern: "org.apache.ZooKeeperService<name0=ReplicatedServer_id(\\d+), name1=replica.(\\d+)><>(\\w+)"
+      name: "cp_zookeeper_$3"
+      labels:
+        replicaId: "$2"
+    - pattern: "org.apache.ZooKeeperService<name0=ReplicatedServer_id(\\d+), name1=replica.(\\d+), name2=(\\w+)><>(\\w+)"
+      name: "cp_zookeeper_$4"
+      labels:
+        replicaId: "$2"
+        memberType: "$3"
+    - pattern: "org.apache.ZooKeeperService<name0=ReplicatedServer_id(\\d+), name1=replica.(\\d+), name2=(\\w+), name3=(\\w+)><>(\\w+)"
+      name: "cp_zookeeper_$4_$5"
+      labels:
+        replicaId: "$2"
+        memberType: "$3"
+---
+---
 # Source: cp-helm-charts/charts/cp-control-center/templates/service.yaml
 apiVersion: v1
 kind: Service
@@ -274,6 +349,9 @@ spec:
       labels:
         app: cp-kafka
         release: kafka
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5556"        
     spec:
       affinity:
         podAntiAffinity:
@@ -295,12 +373,34 @@ spec:
         runAsUser: 999      
         fsGroup: 999               
       containers:
+      - name: prometheus-jmx-exporter
+        image: "solsson/kafka-prometheus-jmx-exporter:latest"
+        command:
+        - java
+        - -XX:+UnlockExperimentalVMOptions
+        - -XX:+UseCGroupMemoryLimitForHeap
+        - -XX:MaxRAMFraction=1
+        - -XshowSettings:vm
+        - -jar
+        - jmx_prometheus_httpserver.jar
+        - "5556"
+        - /etc/jmx-kafka/jmx-kafka-prometheus.yml
+        ports:
+        - containerPort: 5556
+        resources:
+          null
+          
+        volumeMounts:
+        - name: jmx-config
+          mountPath: /etc/jmx-kafka
       - name: cp-kafka-broker
         image: "confluentinc/cp-kafka:5.0.0"
         imagePullPolicy: "IfNotPresent"
         ports:
         - containerPort: 9092
           name: kafka
+        - containerPort: 5555
+          name: jmx
         - containerPort: 31090
           name: nodeport-0
         - containerPort: 31091
@@ -350,6 +450,9 @@ spec:
         - name: datadir1
           mountPath: /opt/kafka/data/logs1  
       volumes:
+      - name: jmx-config
+        configMap:
+          name: kafka-cp-kafka-jmx-configmap
   volumeClaimTemplates:
   - metadata:
       name: datadir0
@@ -390,6 +493,9 @@ spec:
       labels:
         app: cp-zookeeper
         release: kafka
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5556"
     spec:
       affinity:
         podAntiAffinity:
@@ -411,6 +517,26 @@ spec:
         runAsUser: 999      
         fsGroup: 999        
       containers:
+      - name: prometheus-jmx-exporter
+        image: "solsson/kafka-prometheus-jmx-exporter:latest"
+        command:
+        - java
+        - -XX:+UnlockExperimentalVMOptions
+        - -XX:+UseCGroupMemoryLimitForHeap
+        - -XX:MaxRAMFraction=1
+        - -XshowSettings:vm
+        - -jar
+        - jmx_prometheus_httpserver.jar
+        - "5556"
+        - /etc/jmx-zookeeper/jmx-zookeeper-prometheus.yml
+        ports:
+        - containerPort: 5556
+        resources:
+          null
+          
+        volumeMounts:
+        - name: jmx-config
+          mountPath: /etc/jmx-zookeeper      
       - name: cp-zookeeper-server
         image: "confluentinc/cp-zookeeper:5.0.0"
         imagePullPolicy: "IfNotPresent"
@@ -426,6 +552,8 @@ spec:
           name: server
         - containerPort: 3888
           name: leader-election
+        - containerPort: 5555
+          name: jmx
         resources:
           {}
           
@@ -467,6 +595,9 @@ spec:
           mountPath: /var/lib/zookeeper/log
       volumes:
       
+      - name: jmx-config
+        configMap:
+          name: kafka-cp-zookeeper-jmx-configmap
   volumeClaimTemplates:
   - metadata:
       name: datadir
