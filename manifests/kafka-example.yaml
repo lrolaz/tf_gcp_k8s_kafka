@@ -8,6 +8,12 @@ metadata:
 spec:
   partitions: 1
   replicas: 2
+  config:
+    compression.type: producer
+    cleanup.policy: delete
+    retention.ms: 604800000
+    max.message.bytes: 1048576
+    retention.bytes: -1
 ---
 apiVersion: v1
 kind: Pod
@@ -41,5 +47,5 @@ spec:
       requests:
         memory: "100Mi"
     command: ["bin/kafka-producer-perf-test.sh"]
-    args: ["--producer-props", "bootstrap.servers=kafka-cp-kafka.kube-kafka.svc.cluster.local:9092", "--topic", "example02", "--num-records", "1000", "--throughput", "10", "--record-size", "100"]   
+    args: ["--producer-props", "bootstrap.servers=kafka-cp-kafka.kube-kafka.svc.cluster.local:9092", "--topic", "example02", "--num-records", "100000", "--throughput", "10", "--record-size", "10"]   
   restartPolicy: Never  
