@@ -51,7 +51,7 @@ resource "tls_cert_request" "vault" {
   dns_names = [
     "vault",
     "vault.local",
-    "vault.default.svc.cluster.local",
+    "vault.kube-security.svc.cluster.local",
     "localhost",
   ]
 

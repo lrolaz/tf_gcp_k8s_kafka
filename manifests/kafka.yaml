@@ -1,4 +1,49 @@
 ---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kafka
+  namespace: kube-kafka 
+  labels:
+    app: cp-kafka
+    product: kub
+    environment: labo   
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: kafka
+  namespace: kube-kafka   
+  labels:
+    app: cp-kafka
+    product: kub
+    environment: labo  
+rules:
+  - apiGroups: ["certmanager.k8s.io"]
+    resources: ["certificates"]
+    verbs: ["*"]
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: kafka
+  namespace: kube-kafka    
+  labels:
+    app: cp-kafka
+    product: kub
+    environment: labo  
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kafka
+subjects:
+  - name: kafka
+    namespace: kube-kafka 
+    kind: ServiceAccount
+---
 # Source: cp-helm-charts/charts/cp-kafka/templates/jmx-configmap.yaml
 
 apiVersion: v1
@@ -371,7 +416,38 @@ spec:
               topologyKey: "kubernetes.io/hostname"
       securityContext:
         runAsUser: 999      
-        fsGroup: 999               
+        fsGroup: 999  
+      serviceAccountName: kafka         
+      initContainers:
+        - name: certificate-init-container
+          image: lrolaz/certificate-init-container:0.0.6
+          imagePullPolicy: Always
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP                  
+          args:
+            - "-issuer-name=vault-kafka-issuer"
+            - "-issuer-kind=Issuer"          
+            - "-secret-name=$(POD_NAME)-certificate"
+            - "-namespace=$(NAMESPACE)"
+            - "-pod-ip=$(POD_IP)"
+            - "-pod-name=$(POD_NAME)"
+            - "-service-ips=$(HOST_IP)"
+            - "-service-names=kafka-cp-kafka-headless"                             
       containers:
       - name: prometheus-jmx-exporter
         image: "solsson/kafka-prometheus-jmx-exporter:latest"
