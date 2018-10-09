@@ -150,11 +150,11 @@ data "google_kms_secret" "root-token" {
   ciphertext = "${data.http.root-token.body}"
 }
 
-output "token" {
+output "vault_token" {
   value = "${data.google_kms_secret.root-token.plaintext}"
 }
 
-output "address" {
+output "vault_address" {
   value = "${google_compute_address.vault.address}"
 }
 

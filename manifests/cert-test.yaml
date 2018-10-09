@@ -2,10 +2,12 @@ apiVersion: certmanager.k8s.io/v1alpha1
 kind: Certificate
 metadata:
   name: my-certificate2
-  namespace: kube-security
+  namespace: kube-kafka
 spec:
   secretName: my-certificate-secret
   commonName: example.com
+  ipAddresses:
+    - "127.0.0.1"
   issuerRef:
     name: vault-issuer
     kind: ClusterIssuer
