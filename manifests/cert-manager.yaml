@@ -130,7 +130,7 @@ spec:
       serviceAccountName: cert-manager
       initContainers:
       - name: add-vault-ca
-        image: lrolaz/cert-manager-controller:canary  
+        image: lrolaz/cert-manager-controller:0.0.3
         command: ['/bin/sh']
         args: ['-c', "cd /etc/ssl/certs && cp /var/run/secret/ca/vault-ca.pem . && /usr/sbin/update-ca-certificates && cp * /etc/ssl/new"]
         securityContext:
@@ -142,11 +142,12 @@ spec:
             mountPath: /var/run/secret/ca       
       containers:
         - name: cert-manager
-          image: lrolaz/cert-manager-controller:canary
+          image: lrolaz/cert-manager-controller:0.0.3
           imagePullPolicy: Always
           args:
           - --cluster-resource-namespace=$(POD_NAMESPACE)
           - --leader-election-namespace=$(POD_NAMESPACE)
+          - -v=4
           env:
           - name: POD_NAMESPACE
             valueFrom:
@@ -186,5 +187,5 @@ spec:
       tokenSecretRef:
         name: cert-manager-vault-token
         key: token
-    path: PictetRoboCA1/issue/pictet-com-server
+    path: PictetRoboCA1/sign/pictet-com-server
     server: https://vault:8200

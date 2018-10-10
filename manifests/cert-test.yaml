@@ -8,6 +8,8 @@ spec:
   commonName: example.com
   ipAddresses:
     - "127.0.0.1"
+  dnsNames:
+    - "test.com"
   issuerRef:
     name: vault-issuer
     kind: ClusterIssuer

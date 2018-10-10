@@ -19,5 +19,5 @@ spec:
       tokenSecretRef:
         name: cert-manager-vault-token
         key: token
-    path: PictetRoboCA1/issue/kube-kafka
+    path: PictetRoboCA1/sign/kube-kafka
     server: https://vault:8200
