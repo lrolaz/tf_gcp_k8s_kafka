@@ -420,7 +420,7 @@ spec:
       serviceAccountName: kafka         
       initContainers:
         - name: certificate-init-container
-          image: lrolaz/certificate-init-container:0.0.9
+          image: lrolaz/certificate-init-container:0.0.15
           imagePullPolicy: Always
           env:
             - name: NAMESPACE
