@@ -531,6 +531,9 @@ spec:
       - name: jmx-config
         configMap:
           name: kafka-cp-kafka-jmx-configmap
+      - name: kafka-ca
+        secret:
+          name: kafka-ca
   volumeClaimTemplates:
   - metadata:
       name: datadir0
