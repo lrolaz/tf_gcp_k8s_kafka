@@ -31,6 +31,16 @@ resource "tls_self_signed_cert" "vault-ca" {
   provisioner "local-exec" {
     command = "echo '${self.cert_pem}' > tls/ca.pem && chmod 0600 tls/ca.pem"
   }
+
+  provisioner "local-exec" {
+    command = "keytool -keystore tls/truststore.jks -alias CARoot -import -file tls/ca.pem -storepass password -keypass password -noprompt"
+  }
+}
+
+data "local_file" "vault-ca-truststore" {
+    filename = "tls/truststore.jks"
+    
+    depends_on = ["tls_self_signed_cert.vault-ca"]
 }
 
 # Create the Vault server certificates

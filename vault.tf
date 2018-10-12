@@ -105,6 +105,7 @@ resource "kubernetes_secret" "vault-ca" {
 
   data {
     "vault-ca.pem" = "${tls_self_signed_cert.vault-ca.cert_pem}"
+    "vault-ca.jks" = "${data.local_file.vault-ca-truststore.content}"
   }
 }
 
