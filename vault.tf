@@ -1,4 +1,10 @@
 
+resource "kubernetes_namespace" "kube-security" {
+  metadata {
+    name = "kube-security"
+  }
+}
+
 # Create the vault service account
 resource "google_service_account" "vault-server" {
   account_id   = "vault-server"
@@ -29,8 +35,8 @@ resource "google_project_service" "service" {
 }
 
 # Create the storage bucket
-resource "google_storage_bucket" "vault" {
-  name          = "kube-kafka-labo-vault-storage"
+resource "google_storage_bucket" "vault-server" {
+  name          = "kube-kafka-labo-vault"
   force_destroy = true
   storage_class = "MULTI_REGIONAL"
   location = "EU"
@@ -55,30 +61,30 @@ resource "google_storage_bucket" "vault" {
 # Grant service account access to the storage bucket
 resource "google_storage_bucket_iam_member" "vault-server" {
   count  = "${length(var.storage_bucket_roles)}"
-  bucket = "${google_storage_bucket.vault.name}"
+  bucket = "${google_storage_bucket.vault-server.name}"
   role   = "${element(var.storage_bucket_roles, count.index)}"
   member = "serviceAccount:${google_service_account.vault-server.email}"
 }
 
 # Create the KMS key ring
-resource "google_kms_key_ring" "vault" {
-  name     = "vault"
+resource "google_kms_key_ring" "vault-server" {
+  name     = "vault-server"
   location = "${var.region}"
 
   depends_on = ["google_project_service.service"]
 }
 
 # Create the crypto key for encrypting init keys
-resource "google_kms_crypto_key" "vault-init" {
+resource "google_kms_crypto_key" "vault-server-init" {
   name            = "vault-init"
-  key_ring        = "${google_kms_key_ring.vault.id}"
+  key_ring        = "${google_kms_key_ring.vault-server.id}"
   rotation_period = "604800s"
 }
 
 # Grant service account access to the key
-resource "google_kms_crypto_key_iam_member" "vault-init" {
+resource "google_kms_crypto_key_iam_member" "vault-server-init" {
   count         = "${length(var.kms_crypto_key_roles)}"
-  crypto_key_id = "${google_kms_crypto_key.vault-init.id}"
+  crypto_key_id = "${google_kms_crypto_key.vault-server-init.id}"
   role          = "${element(var.kms_crypto_key_roles, count.index)}"
   member        = "serviceAccount:${google_service_account.vault-server.email}"
 }
@@ -94,6 +100,8 @@ resource "kubernetes_secret" "vault-tls" {
     "vault.crt" = "${tls_locally_signed_cert.vault.cert_pem}\n${tls_self_signed_cert.vault-ca.cert_pem}"
     "vault.key" = "${tls_private_key.vault.private_key_pem}"
   }
+  
+  depends_on = ["google_container_cluster.gcp_kubernetes"]  
 }
 
 # Write the secret
@@ -105,8 +113,9 @@ resource "kubernetes_secret" "vault-ca" {
 
   data {
     "vault-ca.pem" = "${tls_self_signed_cert.vault-ca.cert_pem}"
-    "vault-ca.jks" = "${data.local_file.vault-ca-truststore.content}"
   }
+  
+  depends_on = ["google_container_cluster.gcp_kubernetes"]
 }
 
 # Write the configmap
@@ -118,10 +127,12 @@ resource "kubernetes_config_map" "vault" {
 
   data {
     load_balancer_address = "${google_compute_address.vault.address}"
-    gcs_bucket_name       = "${google_storage_bucket.vault.name}"
-    kms_key_id            = "${google_kms_crypto_key.vault-init.id}"
+    gcs_bucket_name       = "${google_storage_bucket.vault-server.name}"
+    kms_key_id            = "${google_kms_crypto_key.vault-server-init.id}"
     project_id            = "kube-kafka-labo"
   }
+  
+  depends_on = ["google_container_cluster.gcp_kubernetes"]
 }
 
 # Provision IP
@@ -134,7 +145,7 @@ resource "google_compute_address" "vault" {
 
 # Download the encrypted root token to disk
 data "google_storage_object_signed_url" "root-token" {
-  bucket = "${google_storage_bucket.vault.name}"
+  bucket = "${google_storage_bucket.vault-server.name}"
   path   = "root-token.enc"
 
   credentials = "${base64decode(google_service_account_key.vault.private_key)}"
@@ -147,7 +158,7 @@ data "http" "root-token" {
 
 # Decrypt the secret
 data "google_kms_secret" "root-token" {
-  crypto_key = "${google_kms_crypto_key.vault-init.id}"
+  crypto_key = "${google_kms_crypto_key.vault-server-init.id}"
   ciphertext = "${data.http.root-token.body}"
 }
 

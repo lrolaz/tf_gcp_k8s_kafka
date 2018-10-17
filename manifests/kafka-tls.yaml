@@ -6,7 +6,7 @@ metadata:
   name: cert-manager-vault-token
   namespace: kube-kafka
 data:
-  token: MDkxOWFlZjktYjEwOC0zZGU2LTEzMGMtMjk0YmNhM2Q2YTUw    
+  token: YmZkZjk0YmEtNzdmZi03MjEyLTU4NjMtNDc4OGU1OWM5NDYx    
 ---
 apiVersion: certmanager.k8s.io/v1alpha1
 kind: Issuer

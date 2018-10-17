@@ -147,7 +147,6 @@ spec:
           args:
           - --cluster-resource-namespace=$(POD_NAMESPACE)
           - --leader-election-namespace=$(POD_NAMESPACE)
-          - -v=4
           env:
           - name: POD_NAMESPACE
             valueFrom:
