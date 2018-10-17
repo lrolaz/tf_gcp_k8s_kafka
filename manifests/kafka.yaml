@@ -420,7 +420,7 @@ spec:
       serviceAccountName: kafka         
       initContainers:
         - name: certificate-init-container
-          image: lrolaz/certificate-init-container:0.0.15
+          image: lrolaz/certificate-init-container:0.0.16
           imagePullPolicy: Always
           env:
             - name: NAMESPACE
@@ -448,6 +448,7 @@ spec:
             - "-pod-name=$(POD_NAME)"
             - "-service-ips=$(HOST_IP)"
             - "-service-names=kafka-cp-kafka-headless"                             
+            - "-keystore-secret-name=kafka-cp-kafka-keystores"  
       containers:
       - name: prometheus-jmx-exporter
         image: "solsson/kafka-prometheus-jmx-exporter:latest"
