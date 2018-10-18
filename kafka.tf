@@ -6,16 +6,15 @@ resource "kubernetes_namespace" "kube-kafka" {
 }
 
 # Write the secret
-resource "kubernetes_secret" "kafka-ca" {
+resource "kubernetes_secret" "kafka-cp-kafka-keystores" {
   metadata {
-    name = "kafka-ca"
+    name = "kafka-cp-kafka-keystores"
     namespace = "kube-kafka"
   }
 
   data {
-    "ca.pem" = "${tls_self_signed_cert.vault-ca.cert_pem}"
-    "truststore.jks" = "${data.local_file.vault-ca-truststore.content}"
-    "truststore.password" = "password"
+    "kafka-cp-kafka-truststore.jks" = "${data.local_file.vault-ca-truststore.content}"
+    "kafka-cp-kafka-truststore.password" = "password"
   }
   
   depends_on = ["google_container_cluster.gcp_kubernetes"]
