@@ -15,12 +15,62 @@ spec:
     max.message.bytes: 1048576
     retention.bytes: -1
 ---
+apiVersion: kafka.strimzi.io/v1alpha1
+kind: KafkaUser
+metadata:
+  name: my-user
+  namespace: kube-public  
+  labels:
+    strimzi.io/kind: user
+spec:
+  authentication:
+    type: scram-sha-512
+  authorization:
+    type: simple
+    acls:
+      - resource:
+          type: topic
+          name: example02
+          patternType: literal
+        operation: Read
+---
 apiVersion: v1
 kind: Pod
 metadata:
   name: example-consumer
   namespace: kube-public
 spec:
+      initContainers:
+        - name: certificate-init-container
+          image: lrolaz/certificate-init-container:0.0.18
+          imagePullPolicy: Always
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: HOST_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP                  
+          args:
+            - "-issuer-name=vault-kafka-issuer"
+            - "-issuer-kind=Issuer"          
+            - "-secret-name=$(POD_NAME)-certificate"
+            - "-namespace=$(NAMESPACE)"
+            - "-pod-ip=$(POD_IP)"
+            - "-pod-name=$(POD_NAME)"
+            - "-service-ips=$(HOST_IP)"
+            - "-service-names=kafka-cp-kafka-headless"                             
+            - "-keystore-secret-name=kafka-cp-kafka-keystores" 
   containers:
   - name: example-consumer
     image: strimzi/kafka:latest
