@@ -13,7 +13,7 @@ resource "kubernetes_secret" "ca" {
   }
 
   data {
-    "ca.pem" = "${tls_self_signed_cert.vault-ca.cert_pem}"
+    "tls.crt" = "${tls_self_signed_cert.vault-ca.cert_pem}"
   }
   
   depends_on = ["google_container_cluster.gcp_kubernetes"]
