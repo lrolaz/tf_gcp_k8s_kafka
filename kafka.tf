@@ -6,6 +6,20 @@ resource "kubernetes_namespace" "kube-kafka" {
 }
 
 # Write the secret
+resource "kubernetes_secret" "ca" {
+  metadata {
+    name = "ca"
+    namespace = "kube-kafka"
+  }
+
+  data {
+    "ca.pem" = "${tls_self_signed_cert.vault-ca.cert_pem}"
+  }
+  
+  depends_on = ["google_container_cluster.gcp_kubernetes"]
+}
+
+# Write the secret
 resource "kubernetes_secret" "kafka-cp-kafka-keystores" {
   metadata {
     name = "kafka-cp-kafka-keystores"
