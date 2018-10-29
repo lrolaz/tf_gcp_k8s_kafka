@@ -1,3 +1,72 @@
+---
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: cert-manager-vault-token
+  namespace: kube-public
+data:
+  token: YmZkZjk0YmEtNzdmZi03MjEyLTU4NjMtNDc4OGU1OWM5NDYx    
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Issuer
+metadata:
+  name: vault-kafka-issuer
+  namespace: kube-public
+spec:
+  vault:
+    auth:
+      tokenSecretRef:
+        name: cert-manager-vault-token
+        key: token
+    path: PictetRoboCA1/sign/kube-kafka
+    server: https://vault:8200
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kafka
+  namespace: kube-public 
+  labels:
+    app: cp-kafka
+    product: kub
+    environment: labo   
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: kafka
+  namespace: kube-public   
+  labels:
+    app: cp-kafka
+    product: kub
+    environment: labo  
+rules:
+  - apiGroups: ["certmanager.k8s.io"]
+    resources: ["certificates"]
+    verbs: ["*"]
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: kafka
+  namespace: kube-public    
+  labels:
+    app: cp-kafka
+    product: kub
+    environment: labo  
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kafka
+subjects:
+  - name: kafka
+    namespace: kube-public 
+    kind: ServiceAccount
+---
 apiVersion: kafka.strimzi.io/v1alpha1
 kind: KafkaTopic
 metadata:
@@ -21,37 +90,36 @@ metadata:
   name: example-consumer
   namespace: kube-public
 spec:
-      initContainers:
-        - name: certificate-init-container
-          image: lrolaz/certificate-init-container:0.0.18
-          imagePullPolicy: Always
-          env:
-            - name: NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: POD_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
-            - name: HOST_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.hostIP                  
-          args:
-            - "-issuer-name=vault-kafka-issuer"
-            - "-issuer-kind=Issuer"          
-            - "-secret-name=$(POD_NAME)-certificate"
-            - "-namespace=$(NAMESPACE)"
-            - "-pod-ip=$(POD_IP)"
-            - "-pod-name=$(POD_NAME)"
-            - "-service-ips=$(HOST_IP)"
-            - "-service-names=kafka-cp-kafka-headless"                             
-            - "-keystore-secret-name=kafka-cp-kafka-keystores" 
+  serviceAccountName: kafka   
+  initContainers:
+  - name: certificate-init-container
+    image: lrolaz/certificate-init-container:0.0.21
+    imagePullPolicy: Always
+    env:
+      - name: NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace
+      - name: POD_NAME
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.name
+      - name: POD_IP
+        valueFrom:
+          fieldRef:
+            fieldPath: status.podIP
+      - name: HOST_IP
+        valueFrom:
+          fieldRef:
+            fieldPath: status.hostIP                  
+    args:
+      - "-common-name=example.$(NAMESPACE).kafka.cluster.local"
+      - "-issuer-name=vault-kafka-issuer"
+      - "-issuer-kind=Issuer"          
+      - "-secret-name=kafka-example-certificate"
+      - "-namespace=$(NAMESPACE)"                          
+      - "-keystore-secret-name=kafka-example-certificate" 
+      - "-ca-secret-name=ca"       
   containers:
   - name: example-consumer
     image: strimzi/kafka:latest
@@ -62,6 +130,14 @@ spec:
         memory: "100Mi"
     command: ["bin/kafka-console-consumer.sh"]
     args: ["--bootstrap-server", "kafka-cp-kafka-headless.kube-kafka.svc.cluster.local:9092", "--topic", "example02", "--from-beginning", "--group", "example-consumer01"]  
+    volumeMounts:
+      - name: kafka-keystore
+        mountPath: /etc/kafka/secrets   
+  volumes:
+    - name: kafka-keystore
+      secret:
+        secretName: kafka-example-certificate
+
 ---
 apiVersion: v1
 kind: Pod

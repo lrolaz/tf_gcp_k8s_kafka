@@ -420,7 +420,7 @@ spec:
       serviceAccountName: kafka         
       initContainers:
         - name: certificate-init-container
-          image: lrolaz/certificate-init-container:0.0.18
+          image: lrolaz/certificate-init-container:0.0.21
           imagePullPolicy: Always
           env:
             - name: NAMESPACE
@@ -440,6 +440,7 @@ spec:
                 fieldRef:
                   fieldPath: status.hostIP                  
           args:
+            - "-common-name=$(POD_NAME).$(NAMESPACE).pod.cluster.local"
             - "-issuer-name=vault-kafka-issuer"
             - "-issuer-kind=Issuer"          
             - "-secret-name=$(POD_NAME)-certificate"
@@ -449,6 +450,7 @@ spec:
             - "-service-ips=$(HOST_IP)"
             - "-service-names=kafka-cp-kafka-headless"                             
             - "-keystore-secret-name=kafka-cp-kafka-keystores"  
+            - "-ca-secret-name=ca" 
       containers:
       - name: prometheus-jmx-exporter
         image: "solsson/kafka-prometheus-jmx-exporter:latest"
@@ -488,6 +490,10 @@ spec:
           {}
           
         env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name        
         - name: POD_IP
           valueFrom:
             fieldRef:
@@ -503,7 +509,7 @@ spec:
         - name: KAFKA_LOG_DIRS 
           value: "/opt/kafka/data/logs0,/opt/kafka/data/logs1"
         - name: "KAFKA_ADVERTISED_LISTENERS"
-          value: "EXTERNAL://${HOST_IP}:$((31090 + ${KAFKA_BROKER_ID}))"
+          value: "INTERNAL://${HOST_IP}:9092,EXTERNAL://${HOST_IP}:$((31090 + ${KAFKA_BROKER_ID}))"
         - name: "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP"
           value: "INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT"
         - name: "KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR"

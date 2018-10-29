@@ -22,7 +22,6 @@ spec:
     path: PictetRoboCA1/sign/kube-kafka
     server: https://vault:8200
 ---
----
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -551,9 +550,9 @@ spec:
         - name: KAFKA_SSL_KEY_CREDENTIALS
           value: "$(POD_NAME)-certificate.password"
         - name: KAFKA_SSL_TRUSTSTORE_FILENAME
-          value: kafka-cp-kafka-truststore.jks
+          value: "$(POD_NAME)-certificate.jks"
         - name: KAFKA_SSL_TRUSTSTORE_CREDENTIALS
-          value: kafka-cp-kafka-truststore.password
+          value: "$(POD_NAME)-certificate.password"
         - name: KAFKA_SSL_CLIENT_AUTH
           value: required
         # This is required because the Downward API does not yet support identification of
