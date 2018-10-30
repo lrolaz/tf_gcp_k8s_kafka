@@ -443,7 +443,7 @@ spec:
       serviceAccountName: kafka         
       initContainers:
         - name: certificate-init-container
-          image: lrolaz/certificate-init-container:0.0.21
+          image: lrolaz/certificate-init-container:0.0.24
           imagePullPolicy: Always
           env:
             - name: NAMESPACE
@@ -472,8 +472,11 @@ spec:
             - "-pod-name=$(POD_NAME)"
             - "-service-ips=$(HOST_IP)"
             - "-service-names=kafka-cp-kafka-headless"                             
-            - "-keystore-secret-name=kafka-cp-kafka-keystores"  
+            - "-keystore-dir=/etc/kafka/secrets" 
             - "-ca-secret-name=ca" 
+          volumeMounts:
+            - name: kafka-keystore
+              mountPath: /etc/kafka/secrets               
       containers:
       - name: prometheus-jmx-exporter
         image: "solsson/kafka-prometheus-jmx-exporter:latest"
@@ -526,7 +529,7 @@ spec:
             fieldRef:
               fieldPath: status.hostIP
         - name: KAFKA_HEAP_OPTS
-          value: -Xms512M -Xmx512M
+          value: -Xms512M -Xmx512M -Djavax.net.debug=ssl 
         - name: KAFKA_ZOOKEEPER_CONNECT
           value: "kafka-cp-zookeeper-headless:2181"
         - name: KAFKA_LOG_DIRS 
@@ -550,9 +553,9 @@ spec:
         - name: KAFKA_SSL_KEY_CREDENTIALS
           value: "$(POD_NAME)-certificate.password"
         - name: KAFKA_SSL_TRUSTSTORE_FILENAME
-          value: "$(POD_NAME)-certificate.jks"
+          value: "truststore.jks"
         - name: KAFKA_SSL_TRUSTSTORE_CREDENTIALS
-          value: "$(POD_NAME)-certificate.password"
+          value: "truststore.password"
         - name: KAFKA_SSL_CLIENT_AUTH
           value: required
         # This is required because the Downward API does not yet support identification of
@@ -572,14 +575,13 @@ spec:
         - name: datadir1
           mountPath: /opt/kafka/data/logs1  
         - name: kafka-keystore
-          mountPath: /etc/kafka/secrets          
+          mountPath: /etc/kafka/secrets        
       volumes:
       - name: jmx-config
         configMap:
           name: kafka-cp-kafka-jmx-configmap
       - name: kafka-keystore
-        secret:
-          secretName: kafka-cp-kafka-keystores
+        emptyDir: {}
   volumeClaimTemplates:
   - metadata:
       name: datadir0

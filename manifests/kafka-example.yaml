@@ -93,7 +93,7 @@ spec:
   serviceAccountName: kafka   
   initContainers:
   - name: certificate-init-container
-    image: lrolaz/certificate-init-container:0.0.21
+    image: lrolaz/certificate-init-container:0.0.22
     imagePullPolicy: Always
     env:
       - name: NAMESPACE
@@ -118,8 +118,11 @@ spec:
       - "-issuer-kind=Issuer"          
       - "-secret-name=kafka-example-certificate"
       - "-namespace=$(NAMESPACE)"                          
-      - "-keystore-secret-name=kafka-example-certificate" 
-      - "-ca-secret-name=ca"       
+      - "-keystore-dir=/etc/kafka/tls" 
+      - "-ca-secret-name=ca"      
+    volumeMounts:
+      - name: kafka-keystore
+        mountPath: /etc/kafka/tls         
   containers:
   - name: example-consumer
     image: strimzi/kafka:latest
@@ -129,14 +132,22 @@ spec:
       requests:
         memory: "100Mi"
     command: ["bin/kafka-console-consumer.sh"]
-    args: ["--bootstrap-server", "kafka-cp-kafka-headless.kube-kafka.svc.cluster.local:9092", "--topic", "example02", "--from-beginning", "--group", "example-consumer01"]  
+    args: ["--bootstrap-server", "kafka-cp-kafka-headless.kube-kafka.svc.cluster.local:9093", 
+      "--topic", "example02", 
+      "--from-beginning", 
+      "--group", "example-consumer01",
+      "--consumer-property", "security.protocol=SSL",
+      "--consumer-property", "ssl.truststore.location=/etc/kafka/tls/kafka-example-certificate.jks",
+      "--consumer-property", "ssl.truststore.password=$(cat /etc/kafka/tls/kafka-example-certificate.password)",      
+      "--consumer-property", "ssl.keystore.location=/etc/kafka/tls/kafka-example-certificate.jks",      
+      "--consumer-property", "ssl.keystore.password=$(cat /etc/kafka/tls/kafka-example-certificate.password)",
+      "--consumer-property", "ssl.key.password=$(cat /etc/kafka/tls/kafka-example-certificate.password)"]  
     volumeMounts:
       - name: kafka-keystore
-        mountPath: /etc/kafka/secrets   
+        mountPath: /etc/kafka/tls   
   volumes:
     - name: kafka-keystore
-      secret:
-        secretName: kafka-example-certificate
+      emptyDir: {}
 
 ---
 apiVersion: v1

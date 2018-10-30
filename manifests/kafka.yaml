@@ -417,40 +417,7 @@ spec:
       securityContext:
         runAsUser: 999      
         fsGroup: 999  
-      serviceAccountName: kafka         
-      initContainers:
-        - name: certificate-init-container
-          image: lrolaz/certificate-init-container:0.0.21
-          imagePullPolicy: Always
-          env:
-            - name: NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace
-            - name: POD_NAME
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.name
-            - name: POD_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.podIP
-            - name: HOST_IP
-              valueFrom:
-                fieldRef:
-                  fieldPath: status.hostIP                  
-          args:
-            - "-common-name=$(POD_NAME).$(NAMESPACE).pod.cluster.local"
-            - "-issuer-name=vault-kafka-issuer"
-            - "-issuer-kind=Issuer"          
-            - "-secret-name=$(POD_NAME)-certificate"
-            - "-namespace=$(NAMESPACE)"
-            - "-pod-ip=$(POD_IP)"
-            - "-pod-name=$(POD_NAME)"
-            - "-service-ips=$(HOST_IP)"
-            - "-service-names=kafka-cp-kafka-headless"                             
-            - "-keystore-secret-name=kafka-cp-kafka-keystores"  
-            - "-ca-secret-name=ca" 
+      serviceAccountName: kafka
       containers:
       - name: prometheus-jmx-exporter
         image: "solsson/kafka-prometheus-jmx-exporter:latest"
