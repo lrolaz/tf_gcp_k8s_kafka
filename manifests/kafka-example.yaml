@@ -93,30 +93,18 @@ spec:
   serviceAccountName: kafka   
   initContainers:
   - name: certificate-init-container
-    image: lrolaz/certificate-init-container:0.0.22
+    image: eu.gcr.io/kube-kafka-labo/certificate-init-container:0.0.25
     imagePullPolicy: Always
     env:
       - name: NAMESPACE
         valueFrom:
           fieldRef:
-            fieldPath: metadata.namespace
-      - name: POD_NAME
-        valueFrom:
-          fieldRef:
-            fieldPath: metadata.name
-      - name: POD_IP
-        valueFrom:
-          fieldRef:
-            fieldPath: status.podIP
-      - name: HOST_IP
-        valueFrom:
-          fieldRef:
-            fieldPath: status.hostIP                  
+            fieldPath: metadata.namespace               
     args:
-      - "-common-name=example.$(NAMESPACE).kafka.cluster.local"
+      - "-common-name=example-consumer.$(NAMESPACE).kafka.cluster.local"
       - "-issuer-name=vault-kafka-issuer"
       - "-issuer-kind=Issuer"          
-      - "-secret-name=kafka-example-certificate"
+      - "-secret-name=kafka-example-consumer-certificate"
       - "-namespace=$(NAMESPACE)"                          
       - "-keystore-dir=/etc/kafka/tls" 
       - "-ca-secret-name=ca"      
@@ -131,17 +119,20 @@ spec:
         memory: "200Mi"
       requests:
         memory: "100Mi"
-    command: ["bin/kafka-console-consumer.sh"]
-    args: ["--bootstrap-server", "kafka-cp-kafka-headless.kube-kafka.svc.cluster.local:9093", 
-      "--topic", "example02", 
-      "--from-beginning", 
-      "--group", "example-consumer01",
-      "--consumer-property", "security.protocol=SSL",
-      "--consumer-property", "ssl.truststore.location=/etc/kafka/tls/kafka-example-certificate.jks",
-      "--consumer-property", "ssl.truststore.password=$(cat /etc/kafka/tls/kafka-example-certificate.password)",      
-      "--consumer-property", "ssl.keystore.location=/etc/kafka/tls/kafka-example-certificate.jks",      
-      "--consumer-property", "ssl.keystore.password=$(cat /etc/kafka/tls/kafka-example-certificate.password)",
-      "--consumer-property", "ssl.key.password=$(cat /etc/kafka/tls/kafka-example-certificate.password)"]  
+    command: 
+    - sh
+    - -exc
+    - |
+      exec bin/kafka-console-consumer.sh --bootstrap-server kafka-cp-kafka-headless.kube-kafka.svc.cluster.local:9093 \
+      --topic example02 \
+      --from-beginning \
+      --group example-consumer01 \
+      --consumer-property security.protocol=SSL \
+      --consumer-property ssl.truststore.location=/etc/kafka/tls/truststore.jks \
+      --consumer-property ssl.truststore.password=$(cat /etc/kafka/tls/truststore.password) \
+      --consumer-property ssl.keystore.location=/etc/kafka/tls/kafka-example-consumer-certificate.jks \
+      --consumer-property ssl.keystore.password=$(cat /etc/kafka/tls/kafka-example-consumer-certificate.password) \
+      --consumer-property ssl.key.password=$(cat /etc/kafka/tls/kafka-example-consumer-certificate.password) 
     volumeMounts:
       - name: kafka-keystore
         mountPath: /etc/kafka/tls   
@@ -156,6 +147,27 @@ metadata:
   name: example-producer
   namespace: kube-public
 spec:
+  serviceAccountName: kafka   
+  initContainers:
+  - name: certificate-init-container
+    image: eu.gcr.io/kube-kafka-labo/certificate-init-container:0.0.25
+    imagePullPolicy: Always
+    env:
+      - name: NAMESPACE
+        valueFrom:
+          fieldRef:
+            fieldPath: metadata.namespace               
+    args:
+      - "-common-name=example-producer.$(NAMESPACE).kafka.cluster.local"
+      - "-issuer-name=vault-kafka-issuer"
+      - "-issuer-kind=Issuer"          
+      - "-secret-name=kafka-example-producer-certificate"
+      - "-namespace=$(NAMESPACE)"                          
+      - "-keystore-dir=/etc/kafka/tls" 
+      - "-ca-secret-name=ca"      
+    volumeMounts:
+      - name: kafka-keystore
+        mountPath: /etc/kafka/tls   
   containers:
   - name: example-producer
     image: strimzi/kafka:latest
@@ -164,6 +176,25 @@ spec:
         memory: "200Mi"
       requests:
         memory: "100Mi"
-    command: ["bin/kafka-producer-perf-test.sh"]
-    args: ["--producer-props", "bootstrap.servers=kafka-cp-kafka.kube-kafka.svc.cluster.local:9092", "--topic", "example02", "--num-records", "100000", "--throughput", "10", "--record-size", "10"]   
-  restartPolicy: Never  
+    command: 
+    - sh
+    - -exc
+    - |
+      exec bin/kafka-producer-perf-test.sh \
+      --topic example02 \
+      --num-records 100000 --throughput 10 --record-size 10 \
+      --producer-props bootstrap.servers=kafka-cp-kafka-headless.kube-kafka.svc.cluster.local:9093 \
+      security.protocol=SSL \
+      ssl.truststore.location=/etc/kafka/tls/truststore.jks \
+      ssl.truststore.password=$(cat /etc/kafka/tls/truststore.password) \
+      ssl.keystore.location=/etc/kafka/tls/kafka-example-producer-certificate.jks \
+      ssl.keystore.password=$(cat /etc/kafka/tls/kafka-example-producer-certificate.password) \
+      ssl.key.password=$(cat /etc/kafka/tls/kafka-example-producer-certificate.password)     
+    volumeMounts:
+      - name: kafka-keystore
+        mountPath: /etc/kafka/tls   
+  volumes:
+    - name: kafka-keystore
+      emptyDir: {}  
+  restartPolicy: Never 
+   

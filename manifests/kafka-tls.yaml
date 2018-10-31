@@ -370,7 +370,28 @@ spec:
         release: kafka
     spec:
       securityContext:
-        runAsUser: 999     
+        runAsUser: 999    
+      serviceAccountName: kafka         
+      initContainers:
+        - name: certificate-init-container
+          image: eu.gcr.io/kube-kafka-labo/certificate-init-container:0.0.25
+          imagePullPolicy: Always
+          env:
+            - name: NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace                
+          args:
+            - "-common-name=control-center.$(NAMESPACE).kafka.cluster.local"
+            - "-issuer-name=vault-kafka-issuer"
+            - "-issuer-kind=Issuer"          
+            - "-secret-name=kafka-control-center-certificate"
+            - "-namespace=$(NAMESPACE)"                          
+            - "-keystore-dir=/etc/kafka/tls" 
+            - "-ca-secret-name=ca"  
+          volumeMounts:
+            - name: kafka-keystore
+              mountPath: /etc/kafka/secrets                     
       containers:
         - name: cp-control-center-server
           image: "confluentinc/cp-enterprise-control-center:5.0.0"
@@ -390,7 +411,7 @@ spec:
           - name: CONTROL_CENTER_ZOOKEEPER_CONNECT
             value: kafka-cp-zookeeper-headless:2181
           - name: CONTROL_CENTER_BOOTSTRAP_SERVERS
-            value: PLAINTEXT://kafka-cp-kafka-headless:9092
+            value: SSL://kafka-cp-kafka-headless:9093
           - name: CONTROL_CENTER_REPLICATION_FACTOR
             value: "1"
 ---
@@ -443,7 +464,7 @@ spec:
       serviceAccountName: kafka         
       initContainers:
         - name: certificate-init-container
-          image: lrolaz/certificate-init-container:0.0.24
+          image: eu.gcr.io/kube-kafka-labo/certificate-init-container:0.0.25
           imagePullPolicy: Always
           env:
             - name: NAMESPACE
@@ -529,7 +550,7 @@ spec:
             fieldRef:
               fieldPath: status.hostIP
         - name: KAFKA_HEAP_OPTS
-          value: -Xms512M -Xmx512M -Djavax.net.debug=ssl 
+          value: -Xms512M -Xmx512M 
         - name: KAFKA_ZOOKEEPER_CONNECT
           value: "kafka-cp-zookeeper-headless:2181"
         - name: KAFKA_LOG_DIRS 
@@ -558,6 +579,7 @@ spec:
           value: "truststore.password"
         - name: KAFKA_SSL_CLIENT_AUTH
           value: required
+         
         # This is required because the Downward API does not yet support identification of
         # pod numbering in statefulsets. Thus, we are required to specify a command which
         # allows us to extract the pod ID for usage as the Kafka Broker ID.
