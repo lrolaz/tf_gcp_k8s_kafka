@@ -67,23 +67,16 @@ roleRef:
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
-  name: kafkatopics.kafka.strimzi.io
-  labels:
-    app: strimzi-topic-operator
-    chart: strimzi-topic-operator-0.1.0
-    release: kafka
-    heritage: Tiller
+  name: kafkatopics.kafka.lrolaz.io
 spec:
-  group: kafka.strimzi.io
-  version: v1alpha1
-  scope: Namespaced
+  group: kafka.lrolaz.io
   names:
     kind: KafkaTopic
     listKind: KafkaTopicList
-    singular: kafkatopic
     plural: kafkatopics
-    shortNames:
-    - kt
+    singular: kafkatopic
+  scope: Namespaced
+  version: v1alpha1
   validation:
     openAPIV3Schema:
       properties:
@@ -102,7 +95,18 @@ spec:
             topicName:
               type: string
 ---
-# Source: cp-helm-charts/charts/strimzi-topic-operator/templates/deployment.yaml
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Certificate
+metadata:
+  name: kafka-topic-operator-certificate
+  namespace: kube-kafka
+spec:
+  secretName: kafka-topic-operator-certificate
+  commonName: kafka-topic-operator
+  issuerRef:
+    name: vault-kafka-issuer
+    kind: Issuer
+---
 apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
@@ -119,6 +123,8 @@ spec:
     matchLabels:
       app: strimzi-topic-operator
       release: kafka
+  strategy:
+    type: Recreate      
   template:
     metadata:
       labels:
@@ -130,26 +136,19 @@ spec:
       serviceAccountName: kafka-strimzi-topic-operator
       containers:
         - name: strimzi-topic-operator
-          image: "strimzi/topic-operator:latest"
+          image: "eu.gcr.io/kube-kafka-labo/kafka-topic-operator:latest"
+          command:
+          - kafka-topic-operator
+          imagePullPolicy: Always          
           env:
-            - name: STRIMZI_CONFIGMAP_LABELS
-              value: "strimzi.io/kind=topic"
-            - name: STRIMZI_KAFKA_BOOTSTRAP_SERVERS
-              value: PLAINTEXT://kafka-cp-kafka-headless:9092
-            - name: STRIMZI_ZOOKEEPER_CONNECT
-              value: kafka-cp-zookeeper-headless:2181
-            - name: STRIMZI_ZOOKEEPER_SESSION_TIMEOUT_MS
-              value: "20000"
-            - name: STRIMZI_FULL_RECONCILIATION_INTERVAL_MS
-              value: "360000"
-            - name: STRIMZI_TOPIC_METADATA_MAX_ATTEMPTS
-              value: "6"
-            - name: STRIMZI_LOG_LEVEL
-              value: INFO
-            - name: STRIMZI_TLS_ENABLED
-              value: "false"
-            - name: STRIMZI_NAMESPACE
-              value: kube-public
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: kafka-cp-kafka-headless.kube-kafka.svc.cluster.local:9093
+            - name: OPERATOR_TLS_CERT_FILE
+              value: /etc/kafka/secrets/cert/tls.crt            
+            - name: OPERATOR_TLS_KEY_FILE
+              value: /etc/kafka/secrets/cert/tls.key          
+            - name: OPERATOR_TLS_CA_FILE
+              value: /etc/kafka/secrets/ca/tls.crt
           resources:
             limits:
               memory: 96Mi
@@ -157,5 +156,15 @@ spec:
             requests:
               memory: 96Mi
               cpu: 100m
-  strategy:
-    type: Recreate
+          volumeMounts:  
+            - name: tls-ca
+              mountPath: /etc/kafka/secrets/ca               
+            - name: tls-cert
+              mountPath: /etc/kafka/secrets/cert  
+      volumes:
+      - name: tls-ca
+        secret:
+          secretName: ca             
+      - name: tls-cert
+        secret:
+          secretName: kafka-topic-operator-certificate
