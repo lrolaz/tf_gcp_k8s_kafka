@@ -24,9 +24,10 @@ metadata:
     heritage: Tiller
 rules:
 - apiGroups:
-  - "kafka.strimzi.io"
+  - "kafka.lrolaz.io"
   resources:
   - kafkatopics
+  - kafkausers
   verbs:
   - get
   - list
