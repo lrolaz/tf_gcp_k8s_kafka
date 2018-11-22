@@ -1,0 +1,11 @@
+apiVersion: kafka.lrolaz.io/v1alpha1
+kind: KafkaUser
+metadata:
+  name: user01
+  namespace: kube-public
+spec:
+  authentication:
+    tls:
+      secretName: kafka-user01-certificate
+      issuerName: vault-kafka-issuer
+      issuerKind: Issuer
