@@ -1,0 +1,170 @@
+---
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: cert-manager-vault-token
+  namespace: kube-public
+data:
+  token: YmZkZjk0YmEtNzdmZi03MjEyLTU4NjMtNDc4OGU1OWM5NDYx    
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Issuer
+metadata:
+  name: vault-kafka-issuer
+  namespace: kube-public
+spec:
+  vault:
+    auth:
+      tokenSecretRef:
+        name: cert-manager-vault-token
+        key: token
+    path: PictetRoboCA1/sign/kube-kafka
+    server: https://vault:8200
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kafka
+  namespace: kube-public 
+  labels:
+    app: cp-kafka
+    product: kub
+    environment: labo   
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: Role
+metadata:
+  name: kafka
+  namespace: kube-public   
+  labels:
+    app: cp-kafka
+    product: kub
+    environment: labo  
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps", "secrets"]
+    verbs: ["*"]
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: RoleBinding
+metadata:
+  name: kafka
+  namespace: kube-public    
+  labels:
+    app: cp-kafka
+    product: kub
+    environment: labo  
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: kafka
+subjects:
+  - name: kafka
+    namespace: kube-public 
+    kind: ServiceAccount
+---
+apiVersion: kafka.lrolaz.io/v1alpha1
+kind: KafkaTopic
+metadata:
+  name: example11
+  namespace: kube-public
+spec:
+  topicName: example11
+  partitions: 1
+  replicas: 1
+  config:
+    compression.type: "producer"
+    cleanup.policy: "delete"
+    retention.ms: "604800000"
+    max.message.bytes: "10485"
+    retention.bytes: "-1"
+---
+apiVersion: kafka.lrolaz.io/v1alpha1
+kind: KafkaUser
+metadata:
+  name: user01
+  namespace: kube-public
+spec:
+  authentication:
+    tls:
+      secretName: kafka-user01-certificate
+      issuerName: vault-kafka-issuer
+      issuerKind: Issuer
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: example-consumer
+  namespace: kube-public
+spec:
+  serviceAccountName: kafka   
+  containers:
+  - name: example-consumer
+    image: strimzi/kafka:latest
+    resources:
+      limits:
+        memory: "200Mi"
+      requests:
+        memory: "100Mi"
+    command: 
+    - sh
+    - -exc
+    - |
+      exec bin/kafka-console-consumer.sh --bootstrap-server kafka-cp-kafka-headless.kube-kafka.svc.cluster.local:9093 \
+      --topic example11 \
+      --from-beginning \
+      --group example-consumer01 \
+      --consumer-property security.protocol=SSL \
+      --consumer-property ssl.truststore.location=/etc/kafka/tls/truststore.jks \
+      --consumer-property ssl.truststore.password=$(cat /etc/kafka/tls/truststore.password) \
+      --consumer-property ssl.keystore.location=/etc/kafka/tls/keystore.jks \
+      --consumer-property ssl.keystore.password=$(cat /etc/kafka/tls/keystore.password) \
+      --consumer-property ssl.key.password=$(cat /etc/kafka/tls/keystore.password) 
+    volumeMounts:
+      - name: kafka-keystore
+        mountPath: /etc/kafka/tls   
+  volumes:
+    - name: kafka-keystore
+      secret:
+        secretName: kafka-user01-certificate
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: example-producer
+  namespace: kube-public
+spec:
+  serviceAccountName: kafka    
+  containers:
+  - name: example-producer
+    image: strimzi/kafka:latest
+    resources:
+      limits:
+        memory: "200Mi"
+      requests:
+        memory: "100Mi"
+    command: 
+    - sh
+    - -exc
+    - |
+      exec bin/kafka-producer-perf-test.sh \
+      --topic example11 \
+      --num-records 100000 --throughput 10 --record-size 10 \
+      --producer-props bootstrap.servers=kafka-cp-kafka-headless.kube-kafka.svc.cluster.local:9093 \
+      security.protocol=SSL \
+      ssl.truststore.location=/etc/kafka/tls/truststore.jks \
+      ssl.truststore.password=$(cat /etc/kafka/tls/truststore.password) \
+      ssl.keystore.location=/etc/kafka/tls/keystore.jks \
+      ssl.keystore.password=$(cat /etc/kafka/tls/keystore.password) \
+      ssl.key.password=$(cat /etc/kafka/tls/keystore.password)     
+    volumeMounts:
+      - name: kafka-keystore
+        mountPath: /etc/kafka/tls   
+  volumes:
+    - name: kafka-keystore
+      secret:
+        secretName: kafka-user01-certificate
+  restartPolicy: Never 
+   
