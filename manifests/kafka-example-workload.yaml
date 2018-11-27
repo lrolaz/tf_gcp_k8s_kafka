@@ -1,69 +1,4 @@
 ---
-apiVersion: v1
-kind: Secret
-type: Opaque
-metadata:
-  name: cert-manager-vault-token
-  namespace: kube-public
-data:
-  token: YmZkZjk0YmEtNzdmZi03MjEyLTU4NjMtNDc4OGU1OWM5NDYx    
----
-apiVersion: certmanager.k8s.io/v1alpha1
-kind: Issuer
-metadata:
-  name: vault-kafka-issuer
-  namespace: kube-public
-spec:
-  vault:
-    auth:
-      tokenSecretRef:
-        name: cert-manager-vault-token
-        key: token
-    path: PictetRoboCA1/sign/kube-kafka
-    server: https://vault:8200
----
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: kafka
-  namespace: kube-public 
-  labels:
-    app: cp-kafka
-    product: kub
-    environment: labo   
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: Role
-metadata:
-  name: kafka
-  namespace: kube-public   
-  labels:
-    app: cp-kafka
-    product: kub
-    environment: labo  
-rules:
-  - apiGroups: [""]
-    resources: ["configmaps", "secrets"]
-    verbs: ["*"]
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: RoleBinding
-metadata:
-  name: kafka
-  namespace: kube-public    
-  labels:
-    app: cp-kafka
-    product: kub
-    environment: labo  
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: kafka
-subjects:
-  - name: kafka
-    namespace: kube-public 
-    kind: ServiceAccount
----
 apiVersion: kafka.lrolaz.io/v1alpha1
 kind: KafkaTopic
 metadata:
@@ -80,25 +15,12 @@ spec:
     max.message.bytes: "10485"
     retention.bytes: "-1"
 ---
-apiVersion: kafka.lrolaz.io/v1alpha1
-kind: KafkaUser
-metadata:
-  name: user01
-  namespace: kube-public
-spec:
-  authentication:
-    tls:
-      secretName: kafka-user01-certificate
-      issuerName: vault-kafka-issuer
-      issuerKind: Issuer
----
 apiVersion: v1
 kind: Pod
 metadata:
   name: example-consumer
   namespace: kube-public
-spec:
-  serviceAccountName: kafka   
+spec: 
   containers:
   - name: example-consumer
     image: strimzi/kafka:latest
@@ -135,8 +57,7 @@ kind: Pod
 metadata:
   name: example-producer
   namespace: kube-public
-spec:
-  serviceAccountName: kafka    
+spec:  
   containers:
   - name: example-producer
     image: strimzi/kafka:latest

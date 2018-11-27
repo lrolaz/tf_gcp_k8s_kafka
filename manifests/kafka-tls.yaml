@@ -345,6 +345,18 @@ spec:
       # Consume a test message from the topic
       kafka-console-consumer --bootstrap-server kafka-cp-kafka-headless:9092 --topic kafka-cp-kafka-canary-topic --from-beginning --timeout-ms 2000 --max-messages 1 | grep "$MESSAGE"
   restartPolicy: Never
+---  
+apiVersion: kafka.lrolaz.io/v1alpha1
+kind: KafkaUser
+metadata:
+  name: user01
+  namespace: kube-kafka
+spec:
+  authentication:
+    tls:
+      secretName: kafka-control-center-certificate
+      issuerName: vault-kafka-issuer
+      issuerKind: Issuer
 ---
 # Source: cp-helm-charts/charts/cp-control-center/templates/deployment.yaml
 apiVersion: apps/v1beta2
@@ -370,28 +382,7 @@ spec:
         release: kafka
     spec:
       securityContext:
-        runAsUser: 999    
-      serviceAccountName: kafka         
-      initContainers:
-        - name: certificate-init-container
-          image: eu.gcr.io/kube-kafka-labo/certificate-init-container:0.0.25
-          imagePullPolicy: Always
-          env:
-            - name: NAMESPACE
-              valueFrom:
-                fieldRef:
-                  fieldPath: metadata.namespace                
-          args:
-            - "-common-name=control-center.$(NAMESPACE).kafka.cluster.local"
-            - "-issuer-name=vault-kafka-issuer"
-            - "-issuer-kind=Issuer"          
-            - "-secret-name=kafka-control-center-certificate"
-            - "-namespace=$(NAMESPACE)"                          
-            - "-keystore-dir=/etc/kafka/tls" 
-            - "-ca-secret-name=ca"  
-          volumeMounts:
-            - name: kafka-keystore
-              mountPath: /etc/kafka/secrets                     
+        runAsUser: 999     
       containers:
         - name: cp-control-center-server
           image: "confluentinc/cp-enterprise-control-center:5.0.0"
@@ -411,9 +402,38 @@ spec:
           - name: CONTROL_CENTER_ZOOKEEPER_CONNECT
             value: kafka-cp-zookeeper-headless:2181
           - name: CONTROL_CENTER_BOOTSTRAP_SERVERS
-            value: SSL://kafka-cp-kafka-headless:9093
+            value: SSL://kafka-cp-kafka-headless.kube-kafka.svc.cluster.local:9093
           - name: CONTROL_CENTER_REPLICATION_FACTOR
             value: "1"
+          - name: SECURITY_PROTOCOL
+            value: SSL
+          - name: SSL_KEYSTORE_LOCATION
+            value: /etc/kafka/tls/keystore.jks
+          - name: SSL_KEYSTORE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: kafka-control-center-certificate
+                key: truststore.password
+          - name: SSL_KEY_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: kafka-control-center-certificate
+                key: truststore.password
+          - name: SSL_TRUSTSTORE_LOCATION
+            value: /etc/kafka/tls/truststore.jks
+          - name: SSL_TRUSTSTORE_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                name: kafka-control-center-certificate
+                key: truststore.password         
+            
+          volumeMounts:
+            - name: kafka-keystore
+              mountPath: /etc/kafka/tls   
+      volumes:
+        - name: kafka-keystore
+          secret:
+            secretName: kafka-control-center-certificate 
 ---
 # Source: cp-helm-charts/charts/cp-kafka/templates/statefulset.yaml
 

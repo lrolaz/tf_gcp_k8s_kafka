@@ -1,0 +1,35 @@
+---
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: cert-manager-vault-token
+  namespace: kube-public
+data:
+  token: YmZkZjk0YmEtNzdmZi03MjEyLTU4NjMtNDc4OGU1OWM5NDYx    
+---
+apiVersion: certmanager.k8s.io/v1alpha1
+kind: Issuer
+metadata:
+  name: vault-kafka-issuer
+  namespace: kube-public
+spec:
+  vault:
+    auth:
+      tokenSecretRef:
+        name: cert-manager-vault-token
+        key: token
+    path: PictetRoboCA1/sign/kube-kafka
+    server: https://vault:8200
+---
+apiVersion: kafka.lrolaz.io/v1alpha1
+kind: KafkaUser
+metadata:
+  name: user01
+  namespace: kube-public
+spec:
+  authentication:
+    tls:
+      secretName: kafka-user01-certificate
+      issuerName: vault-kafka-issuer
+      issuerKind: Issuer

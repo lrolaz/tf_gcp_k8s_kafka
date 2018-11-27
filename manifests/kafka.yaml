@@ -323,6 +323,18 @@ spec:
       kafka-console-consumer --bootstrap-server kafka-cp-kafka-headless:9092 --topic kafka-cp-kafka-canary-topic --from-beginning --timeout-ms 2000 --max-messages 1 | grep "$MESSAGE"
   restartPolicy: Never
 ---
+apiVersion: kafka.lrolaz.io/v1alpha1
+kind: KafkaUser
+metadata:
+  name: user01
+  namespace: kube-kafka
+spec:
+  authentication:
+    tls:
+      secretName: kafka-control-center-certificate
+      issuerName: vault-kafka-issuer
+      issuerKind: Issuer
+---
 # Source: cp-helm-charts/charts/cp-control-center/templates/deployment.yaml
 apiVersion: apps/v1beta2
 kind: Deployment
@@ -370,6 +382,10 @@ spec:
             value: PLAINTEXT://kafka-cp-kafka-headless:9092
           - name: CONTROL_CENTER_REPLICATION_FACTOR
             value: "1"
+  volumes:
+    - name: kafka-keystore
+      secret:
+        secretName: kafka-user01-certificate            
 ---
 # Source: cp-helm-charts/charts/cp-kafka/templates/statefulset.yaml
 
