@@ -150,7 +150,7 @@ spec:
 apiVersion: apps/v1beta2
 kind: Deployment
 metadata:
-  name: kafka-strimzi-topic-operator
+  name: kafka-topic-operator
   namespace: kube-kafka
   labels:
     app: strimzi-topic-operator

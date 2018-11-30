@@ -1,86 +1,28 @@
 ---
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: kafka
-  namespace: kube-kafka 
-  labels:
-    app: cp-kafka
-    product: kub
-    environment: labo   
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: Role
-metadata:
-  name: kafka
-  namespace: kube-kafka   
-  labels:
-    app: cp-kafka
-    product: kub
-    environment: labo  
-rules:
-  - apiGroups: ["certmanager.k8s.io"]
-    resources: ["certificates"]
-    verbs: ["*"]
-  - apiGroups: [""]
-    resources: ["configmaps", "secrets"]
-    verbs: ["*"]
----
-apiVersion: rbac.authorization.k8s.io/v1beta1
-kind: RoleBinding
-metadata:
-  name: kafka
-  namespace: kube-kafka    
-  labels:
-    app: cp-kafka
-    product: kub
-    environment: labo  
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: Role
-  name: kafka
-subjects:
-  - name: kafka
-    namespace: kube-kafka 
-    kind: ServiceAccount
----
-# Source: cp-helm-charts/charts/cp-kafka/templates/jmx-configmap.yaml
+# Source: cp-helm-charts/charts/cp-schema-registry/templates/jmx-configmap.yaml
 
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: kafka-cp-kafka-jmx-configmap
-  namespace: kube-kafka
+  name: kafka-cp-schema-registry-jmx-configmap
   labels:
-    app: cp-kafka
-    chart: cp-kafka-0.1.0
+    app: cp-schema-registry
+    chart: cp-schema-registry-0.1.0
     release: kafka
     heritage: Tiller
 data:
-  jmx-kafka-prometheus.yml: |+
+  jmx-schema-registry-prometheus.yml: |+
     jmxUrl: service:jmx:rmi:///jndi/rmi://localhost:5555/jmxrmi
     lowercaseOutputName: true
     lowercaseOutputLabelNames: true
     ssl: false
     rules:
-    - pattern : kafka.server<type=ReplicaManager, name=(.+)><>(Value|OneMinuteRate)
-      name: "cp_kafka_server_replicamanager_$1"
-    - pattern : kafka.controller<type=KafkaController, name=(.+)><>Value
-      name: "cp_kafka_controller_kafkacontroller_$1"
-    - pattern : kafka.server<type=BrokerTopicMetrics, name=(.+)><>OneMinuteRate
-      name: "cp_kafka_server_brokertopicmetrics_$1"
-    - pattern : kafka.network<type=RequestMetrics, name=RequestsPerSec, request=(.+)><>OneMinuteRate
-      name: "cp_kafka_network_requestmetrics_requestspersec_$1"
-    - pattern : kafka.network<type=SocketServer, name=NetworkProcessorAvgIdlePercent><>Value
-      name: "cp_kafka_network_socketserver_networkprocessoravgidlepercent"
-    - pattern : kafka.server<type=ReplicaFetcherManager, name=MaxLag, clientId=(.+)><>Value
-      name: "cp_kafka_server_replicafetchermanager_maxlag_$1"
-    - pattern : kafka.server<type=KafkaRequestHandlerPool, name=RequestHandlerAvgIdlePercent><>OneMinuteRate
-      name: "cp_kafka_kafkarequesthandlerpool_requesthandleravgidlepercent"
-    - pattern : kafka.controller<type=ControllerStats, name=(.+)><>OneMinuteRate
-      name: "cp_kafka_controller_controllerstats_$1"
-    - pattern : kafka.server<type=SessionExpireListener, name=(.+)><>OneMinuteRate
-      name: "cp_kafka_server_sessionexpirelistener_$1"
+    - pattern : 'kafka.schema.registry<type=jetty-metrics>([^:]+):'
+      name: "cp_kafka_schema_registry_jetty_metrics_$1"
+    - pattern : 'kafka.schema.registry<type=master-slave-role>([^:]+):'
+      name: "cp_kafka_schema_registry_master_slave_role"
+    - pattern : 'kafka.schema.registry<type=jersey-metrics>([^:]+):'
+      name: "cp_kafka_schema_registry_jersey_metrics_$1"
 ---
 # Source: cp-helm-charts/charts/cp-zookeeper/templates/jmx-configmap.yaml
 
@@ -118,6 +60,108 @@ data:
         replicaId: "$2"
         memberType: "$3"
 ---
+# Source: cp-helm-charts/charts/strimzi-topic-operator/templates/serviceaccount.yaml
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kafka-strimzi-topic-operator
+  namespace: kube-kafka
+  labels:
+    app: strimzi-topic-operator
+    chart: strimzi-topic-operator-0.1.0
+    release: kafka
+    heritage: Tiller
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRole
+metadata:
+  name: kafka-strimzi-topic-operator
+  namespace: kube-kafka
+  labels:
+    app: strimzi-topic-operator
+    chart: strimzi-topic-operator-0.1.0
+    release: kafka
+    heritage: Tiller
+rules:
+- apiGroups:
+  - "kafka.strimzi.io"
+  resources:
+  - kafkatopics
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - patch
+  - update
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1beta1
+kind: ClusterRoleBinding
+metadata:
+  name: kafka-strimzi-topic-operator
+  namespace: kube-kafka
+  labels:
+    app: strimzi-topic-operator
+    chart: strimzi-topic-operator-0.1.0
+    release: kafka
+    heritage: Tiller
+subjects:
+  - kind: ServiceAccount
+    name: kafka-strimzi-topic-operator
+    namespace: kube-kafka
+roleRef:
+  kind: ClusterRole
+  name: kafka-strimzi-topic-operator
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# Source: cp-helm-charts/charts/strimzi-topic-operator/templates/crd.yaml
+---
+apiVersion: apiextensions.k8s.io/v1beta1
+kind: CustomResourceDefinition
+metadata:
+  name: kafkatopics.kafka.strimzi.io
+  labels:
+    app: strimzi-topic-operator
+    chart: strimzi-topic-operator-0.1.0
+    release: kafka
+    heritage: Tiller
+spec:
+  group: kafka.strimzi.io
+  version: v1alpha1
+  scope: Namespaced
+  names:
+    kind: KafkaTopic
+    listKind: KafkaTopicList
+    singular: kafkatopic
+    plural: kafkatopics
+    shortNames:
+    - kt
+  validation:
+    openAPIV3Schema:
+      properties:
+        spec:
+          type: object
+          properties:
+            partitions:
+              type: integer
+              minimum: 1
+            replicas:
+              type: integer
+              minimum: 1
+              maximum: 32767
+            config:
+              type: object
+            topicName:
+              type: string
 ---
 # Source: cp-helm-charts/charts/cp-control-center/templates/service.yaml
 apiVersion: v1
@@ -253,6 +297,25 @@ spec:
     app: cp-kafka
     release: kafka
 ---
+# Source: cp-helm-charts/charts/cp-schema-registry/templates/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-cp-schema-registry
+  labels:
+    app: cp-schema-registry
+    chart: cp-schema-registry-0.1.0
+    release: kafka
+    heritage: Tiller
+spec:
+  ports:
+    - name: schema-registry
+      port: 8081
+  selector:
+    app: cp-schema-registry
+    release: kafka
+
+---
 # Source: cp-helm-charts/charts/cp-zookeeper/templates/headless-service.yaml
 apiVersion: v1
 kind: Service
@@ -323,18 +386,6 @@ spec:
       kafka-console-consumer --bootstrap-server kafka-cp-kafka-headless:9092 --topic kafka-cp-kafka-canary-topic --from-beginning --timeout-ms 2000 --max-messages 1 | grep "$MESSAGE"
   restartPolicy: Never
 ---
-apiVersion: kafka.lrolaz.io/v1alpha1
-kind: KafkaUser
-metadata:
-  name: user01
-  namespace: kube-kafka
-spec:
-  authentication:
-    tls:
-      secretName: kafka-control-center-certificate
-      issuerName: vault-kafka-issuer
-      issuerKind: Issuer
----
 # Source: cp-helm-charts/charts/cp-control-center/templates/deployment.yaml
 apiVersion: apps/v1beta2
 kind: Deployment
@@ -382,10 +433,142 @@ spec:
             value: PLAINTEXT://kafka-cp-kafka-headless:9092
           - name: CONTROL_CENTER_REPLICATION_FACTOR
             value: "1"
-  volumes:
-    - name: kafka-keystore
-      secret:
-        secretName: kafka-user01-certificate            
+---
+# Source: cp-helm-charts/charts/cp-schema-registry/templates/deployment.yaml
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: kafka-cp-schema-registry
+  labels:
+    app: cp-schema-registry
+    chart: cp-schema-registry-0.1.0
+    release: kafka
+    heritage: Tiller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cp-schema-registry
+      release: kafka
+  template:
+    metadata:
+      labels:
+        app: cp-schema-registry
+        release: kafka
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "5556"
+    spec:
+      containers:
+        - name: prometheus-jmx-exporter
+          image: "solsson/kafka-prometheus-jmx-exporter@sha256:a23062396cd5af1acdf76512632c20ea6be76885dfc20cd9ff40fb23846557e8"
+          command:
+          - java
+          - -XX:+UnlockExperimentalVMOptions
+          - -XX:+UseCGroupMemoryLimitForHeap
+          - -XX:MaxRAMFraction=1
+          - -XshowSettings:vm
+          - -jar
+          - jmx_prometheus_httpserver.jar
+          - "5556"
+          - /etc/jmx-schema-registry/jmx-schema-registry-prometheus.yml
+          ports:
+          - containerPort: 5556
+          resources:
+            null
+            
+          volumeMounts:
+          - name: jmx-config
+            mountPath: /etc/jmx-schema-registry
+        - name: cp-schema-registry-server
+          image: "confluentinc/cp-schema-registry:5.0.0"
+          imagePullPolicy: "IfNotPresent"
+          ports:
+            - name: schema-registry
+              containerPort: 8081
+              protocol: TCP
+            - containerPort: 5555
+              name: jmx
+          resources:
+            {}
+            
+          env:
+          - name: SCHEMA_REGISTRY_HOST_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS
+            value: PLAINTEXT://kafka-cp-kafka-headless:9092
+          - name: SCHEMA_REGISTRY_KAFKASTORE_GROUP_ID
+            value: kafka
+          - name: SCHEMA_REGISTRY_MASTER_ELIGIBILITY
+            value: "true"
+          
+          - name: JMX_PORT
+            value: "5555"
+      volumes:
+      - name: jmx-config
+        configMap:
+          name: kafka-cp-schema-registry-jmx-configmap
+---
+# Source: cp-helm-charts/charts/strimzi-topic-operator/templates/deployment.yaml
+apiVersion: apps/v1beta2
+kind: Deployment
+metadata:
+  name: kafka-strimzi-topic-operator
+  namespace: kube-kafka
+  labels:
+    app: strimzi-topic-operator
+    chart: strimzi-topic-operator-0.1.0
+    release: kafka
+    heritage: Tiller
+spec:
+  replicas: 
+  selector:
+    matchLabels:
+      app: strimzi-topic-operator
+      release: kafka
+  template:
+    metadata:
+      labels:
+        app: strimzi-topic-operator
+        release: kafka      
+    spec:
+      securityContext:
+        runAsUser: 999   
+      serviceAccountName: kafka-strimzi-topic-operator
+      containers:
+        - name: strimzi-topic-operator
+          image: "strimzi/topic-operator:latest"
+          env:
+            - name: STRIMZI_CONFIGMAP_LABELS
+              value: "strimzi.io/kind=topic"
+            - name: STRIMZI_KAFKA_BOOTSTRAP_SERVERS
+              value: PLAINTEXT://kafka-cp-kafka-headless:9092
+            - name: STRIMZI_ZOOKEEPER_CONNECT
+              value: kafka-cp-zookeeper-headless:2181
+            - name: STRIMZI_ZOOKEEPER_SESSION_TIMEOUT_MS
+              value: "20000"
+            - name: STRIMZI_FULL_RECONCILIATION_INTERVAL_MS
+              value: "-1"
+            - name: STRIMZI_TOPIC_METADATA_MAX_ATTEMPTS
+              value: "6"
+            - name: STRIMZI_LOG_LEVEL
+              value: INFO
+            - name: STRIMZI_TLS_ENABLED
+              value: "false"
+            - name: STRIMZI_NAMESPACE
+              value: kube-kafka,kube-public
+          resources:
+            limits:
+              memory: 96Mi
+              cpu: 100m
+            requests:
+              memory: 96Mi
+              cpu: 100m
+  strategy:
+    type: Recreate
+
 ---
 # Source: cp-helm-charts/charts/cp-kafka/templates/statefulset.yaml
 
@@ -410,9 +593,6 @@ spec:
       labels:
         app: cp-kafka
         release: kafka
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "5556"        
     spec:
       affinity:
         podAntiAffinity:
@@ -432,37 +612,14 @@ spec:
               topologyKey: "kubernetes.io/hostname"
       securityContext:
         runAsUser: 999      
-        fsGroup: 999  
-      serviceAccountName: kafka
+        fsGroup: 999               
       containers:
-      - name: prometheus-jmx-exporter
-        image: "solsson/kafka-prometheus-jmx-exporter:latest"
-        command:
-        - java
-        - -XX:+UnlockExperimentalVMOptions
-        - -XX:+UseCGroupMemoryLimitForHeap
-        - -XX:MaxRAMFraction=1
-        - -XshowSettings:vm
-        - -jar
-        - jmx_prometheus_httpserver.jar
-        - "5556"
-        - /etc/jmx-kafka/jmx-kafka-prometheus.yml
-        ports:
-        - containerPort: 5556
-        resources:
-          null
-          
-        volumeMounts:
-        - name: jmx-config
-          mountPath: /etc/jmx-kafka
       - name: cp-kafka-broker
         image: "confluentinc/cp-kafka:5.0.0"
         imagePullPolicy: "IfNotPresent"
         ports:
         - containerPort: 9092
           name: kafka
-        - containerPort: 5555
-          name: jmx
         - containerPort: 31090
           name: nodeport-0
         - containerPort: 31091
@@ -473,10 +630,6 @@ spec:
           {}
           
         env:
-        - name: POD_NAME
-          valueFrom:
-            fieldRef:
-              fieldPath: metadata.name        
         - name: POD_IP
           valueFrom:
             fieldRef:
@@ -492,17 +645,13 @@ spec:
         - name: KAFKA_LOG_DIRS 
           value: "/opt/kafka/data/logs0,/opt/kafka/data/logs1"
         - name: "KAFKA_ADVERTISED_LISTENERS"
-          value: "INTERNAL://${HOST_IP}:9092,EXTERNAL://${HOST_IP}:$((31090 + ${KAFKA_BROKER_ID}))"
+          value: "EXTERNAL://${HOST_IP}:$((31090 + ${KAFKA_BROKER_ID}))"
         - name: "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP"
-          value: "INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT"
+          value: "PLAINTEXT:PLAINTEXT,EXTERNAL:PLAINTEXT"
         - name: "KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR"
           value: "1"
         - name: KAFKA_JMX_PORT
           value: "5555"
-        - name: KAFKA_JMX_HOSTNAME
-          value: localhost
-        - name: KAFKA_INTER_BROKER_LISTENER_NAME
-          value: INTERNAL          
         # This is required because the Downward API does not yet support identification of
         # pod numbering in statefulsets. Thus, we are required to specify a command which
         # allows us to extract the pod ID for usage as the Kafka Broker ID.
@@ -512,22 +661,14 @@ spec:
         - -exc
         - |
           export KAFKA_BROKER_ID=${HOSTNAME##*-} && \
-          export KAFKA_ADVERTISED_LISTENERS=INTERNAL://${POD_IP}:9092,EXTERNAL://${HOST_IP}:$((31090 + ${KAFKA_BROKER_ID})) && \
+          export KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://${POD_IP}:9092,EXTERNAL://${HOST_IP}:$((31090 + ${KAFKA_BROKER_ID})) && \
           exec /etc/confluent/docker/run
         volumeMounts:
         - name: datadir0
           mountPath: /opt/kafka/data/logs0
         - name: datadir1
           mountPath: /opt/kafka/data/logs1  
-        - name: kafka-keystore
-          mountPath: /etc/kafka/secrets          
       volumes:
-      - name: jmx-config
-        configMap:
-          name: kafka-cp-kafka-jmx-configmap
-      - name: kafka-keystore
-        secret:
-          secretName: kafka-cp-kafka-keystores
   volumeClaimTemplates:
   - metadata:
       name: datadir0
@@ -611,7 +752,7 @@ spec:
           
         volumeMounts:
         - name: jmx-config
-          mountPath: /etc/jmx-zookeeper      
+          mountPath: /etc/jmx-zookeeper
       - name: cp-zookeeper-server
         image: "confluentinc/cp-zookeeper:5.0.0"
         imagePullPolicy: "IfNotPresent"
@@ -703,11 +844,12 @@ metadata:
     release: kafka
     heritage: Tiller
   annotations:
-    kubernetes.io/ingress.class: "nginx"
+    ingress.kubernetes.io/ssl-redirect: "true"
+    ingress.vault.io/tls: "true"
     
 spec:
   rules:
-    - host: control-center.kube-kafka.kafka-labo.pco.corp
+    - host: control-center.kube-kafka.kube-labo.pco.corp
       http:
         paths:
           - backend:
@@ -733,7 +875,4 @@ spec:
   maxUnavailable: 1
 ---
 # Source: cp-helm-charts/charts/cp-kafka/templates/jmx-configmap.yaml
-
----
-# Source: cp-helm-charts/charts/cp-zookeeper/templates/jmx-configmap.yaml
 

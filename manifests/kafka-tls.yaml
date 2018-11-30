@@ -393,7 +393,11 @@ spec:
               protocol: TCP
           resources:
             {}
-            
+          command:
+          - sh
+          - -exc
+          - |
+            exec /etc/confluent/docker/run            
           env:
           - name: KAFKA_REST_HOST_NAME
             valueFrom:
@@ -402,31 +406,30 @@ spec:
           - name: CONTROL_CENTER_ZOOKEEPER_CONNECT
             value: kafka-cp-zookeeper-headless:2181
           - name: CONTROL_CENTER_BOOTSTRAP_SERVERS
-            value: SSL://kafka-cp-kafka-headless.kube-kafka.svc.cluster.local:9093
+            value: kafka-cp-kafka-headless.kube-kafka.svc.cluster.local:9093
           - name: CONTROL_CENTER_REPLICATION_FACTOR
             value: "1"
-          - name: SECURITY_PROTOCOL
+          - name: CONTROL_CENTER_SECURITY_PROTOCOL
             value: SSL
-          - name: SSL_KEYSTORE_LOCATION
+          - name: CONTROL_CENTER_SSL_KEYSTORE_LOCATION
             value: /etc/kafka/tls/keystore.jks
-          - name: SSL_KEYSTORE_PASSWORD
+          - name: CONTROL_CENTER_SSL_KEYSTORE_PASSWORD
             valueFrom:
               secretKeyRef:
                 name: kafka-control-center-certificate
                 key: truststore.password
-          - name: SSL_KEY_PASSWORD
+          - name: CONTROL_CENTER_SSL_KEY_PASSWORD
             valueFrom:
               secretKeyRef:
                 name: kafka-control-center-certificate
                 key: truststore.password
-          - name: SSL_TRUSTSTORE_LOCATION
+          - name: CONTROL_CENTER_SSL_TRUSTSTORE_LOCATION
             value: /etc/kafka/tls/truststore.jks
-          - name: SSL_TRUSTSTORE_PASSWORD
+          - name: CONTROL_CENTER_SSL_TRUSTSTORE_PASSWORD
             valueFrom:
               secretKeyRef:
                 name: kafka-control-center-certificate
                 key: truststore.password         
-            
           volumeMounts:
             - name: kafka-keystore
               mountPath: /etc/kafka/tls   

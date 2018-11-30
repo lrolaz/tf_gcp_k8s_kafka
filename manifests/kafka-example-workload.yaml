@@ -2,10 +2,10 @@
 apiVersion: kafka.lrolaz.io/v1alpha1
 kind: KafkaTopic
 metadata:
-  name: example11
+  name: example02
   namespace: kube-public
 spec:
-  topicName: example11
+  topicName: example02
   partitions: 1
   replicas: 1
   config:
@@ -34,7 +34,7 @@ spec:
     - -exc
     - |
       exec bin/kafka-console-consumer.sh --bootstrap-server kafka-cp-kafka-headless.kube-kafka.svc.cluster.local:9093 \
-      --topic example11 \
+      --topic example02 \
       --from-beginning \
       --group example-consumer01 \
       --consumer-property security.protocol=SSL \
@@ -71,7 +71,7 @@ spec:
     - -exc
     - |
       exec bin/kafka-producer-perf-test.sh \
-      --topic example11 \
+      --topic example02 \
       --num-records 100000 --throughput 10 --record-size 10 \
       --producer-props bootstrap.servers=kafka-cp-kafka-headless.kube-kafka.svc.cluster.local:9093 \
       security.protocol=SSL \
