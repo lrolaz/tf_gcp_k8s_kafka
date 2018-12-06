@@ -8,7 +8,6 @@ spec:
   commonName: example.com
   ipAddresses:
     - "127.0.0.1"
-    - "127.0.0.2"
   dnsNames:
     - "test.com"
     - "test2.com"

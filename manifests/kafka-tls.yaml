@@ -487,7 +487,7 @@ spec:
       serviceAccountName: kafka         
       initContainers:
         - name: certificate-init-container
-          image: eu.gcr.io/kube-kafka-labo/certificate-init-container:0.0.25
+          image: eu.gcr.io/kube-kafka-labo/certificate-init-container:0.0.26
           imagePullPolicy: Always
           env:
             - name: NAMESPACE
@@ -517,7 +517,6 @@ spec:
             - "-service-ips=$(HOST_IP)"
             - "-service-names=kafka-cp-kafka-headless"                             
             - "-keystore-dir=/etc/kafka/secrets" 
-            - "-ca-secret-name=ca" 
           volumeMounts:
             - name: kafka-keystore
               mountPath: /etc/kafka/secrets               
@@ -526,10 +525,6 @@ spec:
         image: "solsson/kafka-prometheus-jmx-exporter:latest"
         command:
         - java
-        - -XX:+UnlockExperimentalVMOptions
-        - -XX:+UseCGroupMemoryLimitForHeap
-        - -XX:MaxRAMFraction=1
-        - -XshowSettings:vm
         - -jar
         - jmx_prometheus_httpserver.jar
         - "5556"
@@ -695,10 +690,6 @@ spec:
         image: "solsson/kafka-prometheus-jmx-exporter:latest"
         command:
         - java
-        - -XX:+UnlockExperimentalVMOptions
-        - -XX:+UseCGroupMemoryLimitForHeap
-        - -XX:MaxRAMFraction=1
-        - -XshowSettings:vm
         - -jar
         - jmx_prometheus_httpserver.jar
         - "5556"

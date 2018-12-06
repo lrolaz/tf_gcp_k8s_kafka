@@ -162,7 +162,7 @@ spec:
       serviceAccountName: cert-manager
       initContainers:
       - name: add-vault-ca
-        image: lrolaz/cert-manager-controller:0.1.6
+        image: lrolaz/cert-manager-controller:0.1.7
         command: ['/bin/sh']
         args: ['-c', "cd /etc/ssl/certs && cp /var/run/secret/ca/vault-ca.pem . && /usr/sbin/update-ca-certificates && cp * /etc/ssl/new"]
         securityContext:
@@ -174,7 +174,7 @@ spec:
             mountPath: /var/run/secret/ca       
       containers:
         - name: cert-manager
-          image: lrolaz/cert-manager-controller:0.1.6
+          image: lrolaz/cert-manager-controller:0.1.7
           imagePullPolicy: Always
           args:
           - --cluster-resource-namespace=$(POD_NAMESPACE)
